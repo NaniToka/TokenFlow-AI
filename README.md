@@ -13,11 +13,36 @@
 
 ---
 
+## 🖼️ Application Dashboard Showcase
+
+### 1. Prompt Compression Visualizer
+![Prompt Compression Visualizer](./docs/screenshots/prompt-visualizer.png)
+*Side-by-side prompt context visualizer displaying 72.81% token reduction savings, Gemini 1.5 Flash background memory summary note, and retained relevance-scored turns.*
+
+---
+
+### 2. Live Analytics & Financial Cost Tracking
+![Live Analytics Dashboard](./docs/screenshots/analytics-dashboard.png)
+*Real-time analytics dashboard rendering total tokens saved, estimated USD input savings, compression ratio metrics (68.9%), and token reduction graphs.*
+
+---
+
+### 3. Built-In Industry Demo Scenarios
+![Built-in Demo Scenarios](./docs/screenshots/demo-scenarios.png)
+*Interactive scenario browser featuring 20+ pre-configured industry conversation datasets (DevOps, Healthcare HIPAA, FinTech, CyberSecurity, Legal Tech).*
+
+---
+
+### 4. Custom Prompt & JSON History Tester
+![Custom Input Prompt](./docs/screenshots/custom-prompt-input.png)
+*Custom prompt execution workspace allowing arbitrary multi-turn conversation payloads and live compression testing.*
+
+---
+
 ## 📐 System Architecture Overview
 
 <p align="center">
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 900 360" width="100%" height="100%" style="background-color: #0B0F19; border-radius: 12px; font-family: system-ui, -apple-system, sans-serif;">
-  <!-- Background Glows -->
   <defs>
     <linearGradient id="grad-cyan" x1="0%" y1="0%" x2="100%" y2="100%">
       <stop offset="0%" stop-color="#0EA5E9" stop-opacity="0.8"/>
@@ -40,10 +65,8 @@
     </marker>
   </defs>
 
-  <!-- Title Banner -->
   <text x="450" y="32" text-anchor="middle" fill="#F8FAFC" font-size="16" font-weight="700" letter-spacing="1">TOKENFLOW AI — END-TO-END PIPELINE ARCHITECTURE</text>
   
-  <!-- Step 1: User Request -->
   <g transform="translate(30, 75)">
     <rect width="160" height="180" rx="10" fill="#1E293B" stroke="#334155" stroke-width="1.5"/>
     <rect width="160" height="36" rx="10" fill="url(#grad-cyan)"/>
@@ -58,7 +81,6 @@
 
   <line x1="190" y1="165" x2="235" y2="165" stroke="#38BDF8" stroke-width="2.5" marker-end="url(#arrow)" />
 
-  <!-- Step 2: Vector Ranker Engine -->
   <g transform="translate(240, 75)">
     <rect width="190" height="180" rx="10" fill="#1E293B" stroke="#334155" stroke-width="1.5"/>
     <rect width="190" height="36" rx="10" fill="url(#grad-purple)"/>
@@ -73,7 +95,6 @@
 
   <line x1="430" y1="165" x2="475" y2="165" stroke="#38BDF8" stroke-width="2.5" marker-end="url(#arrow)" />
 
-  <!-- Step 3: Context Compressor -->
   <g transform="translate(480, 75)">
     <rect width="180" height="180" rx="10" fill="#1E293B" stroke="#334155" stroke-width="1.5"/>
     <rect width="180" height="36" rx="10" fill="url(#grad-cyan)"/>
@@ -88,7 +109,6 @@
 
   <line x1="660" y1="165" x2="705" y2="165" stroke="#38BDF8" stroke-width="2.5" marker-end="url(#arrow)" />
 
-  <!-- Step 4: Optimized Payload -->
   <g transform="translate(710, 75)">
     <rect width="160" height="180" rx="10" fill="#1E293B" stroke="#10B981" stroke-width="2" filter="url(#glow)"/>
     <rect width="160" height="36" rx="10" fill="url(#grad-emerald)"/>
@@ -101,7 +121,6 @@
     <text x="80" y="157" text-anchor="middle" fill="#6EE7B7" font-size="10.5" font-weight="700">165 Tokens (-74.1%)</text>
   </g>
 
-  <!-- Bottom Metric Bar -->
   <rect x="30" y="280" width="840" height="55" rx="10" fill="#0F172A" stroke="#1E293B" stroke-width="1.5"/>
   <text x="160" y="313" text-anchor="middle" fill="#38BDF8" font-size="13" font-weight="700">⚡ 74.14% Token Reduction</text>
   <text x="450" y="313" text-anchor="middle" fill="#34D399" font-size="13" font-weight="700">💰 4x Cost Efficiency</text>
@@ -130,7 +149,6 @@ Modern conversational AI workflows suffer from a compounding engineering challen
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 900 280" width="100%" height="100%" style="background-color: #0B0F19; border-radius: 12px; font-family: system-ui, -apple-system, sans-serif;">
   <text x="450" y="32" text-anchor="middle" fill="#F8FAFC" font-size="16" font-weight="700" letter-spacing="1">EXPONENTIAL RECENCY DECAY & VECTOR RANKING SCORING</text>
   
-  <!-- Formula Card -->
   <rect x="40" y="65" width="400" height="180" rx="10" fill="#1E293B" stroke="#334155" stroke-width="1.5"/>
   <text x="60" y="95" fill="#38BDF8" font-size="14" font-weight="700">1. Vector Cosine Similarity</text>
   <text x="60" y="118" fill="#CBD5E1" font-size="12" font-family="monospace">S_i = (u · v_i) / (||u|| ||v_i||)</text>
@@ -141,15 +159,12 @@ Modern conversational AI workflows suffer from a compounding engineering challen
   <text x="60" y="205" fill="#F43F5E" font-size="14" font-weight="700">3. Combined Turn Score</text>
   <text x="60" y="228" fill="#FCA5A5" font-size="12" font-weight="700" font-family="monospace">Score_i = α · S_i + (1 - α) · R_i</text>
 
-  <!-- Graph Curve Card -->
   <rect x="460" y="65" width="400" height="180" rx="10" fill="#1E293B" stroke="#334155" stroke-width="1.5"/>
   <text x="660" y="92" text-anchor="middle" fill="#94A3B8" font-size="12" font-weight="600">Recency Decay Curve (λ = 0.15)</text>
   
-  <!-- Graph Axes -->
   <line x1="500" y1="210" x2="820" y2="210" stroke="#475569" stroke-width="1.5"/>
   <line x1="500" y1="110" x2="500" y2="210" stroke="#475569" stroke-width="1.5"/>
   
-  <!-- Decay Path Curve -->
   <path d="M 500 115 Q 580 180 820 205" fill="none" stroke="#F43F5E" stroke-width="3"/>
   <circle cx="500" cy="115" r="4" fill="#F43F5E"/>
   <circle cx="600" cy="170" r="4" fill="#818CF8"/>
@@ -172,117 +187,6 @@ Modern conversational AI workflows suffer from a compounding engineering challen
    $$R_i = e^{-\lambda (N - 1 - i)}$$
 4. **Weighted Turn Score**: Combines relevance and recency with tuneable weight factor $\alpha \in [0, 1]$:
    $$\text{Score}_i = \alpha \cdot S_i + (1 - \alpha) \cdot R_i$$
-
----
-
-## 🖥️ Interactive Dashboard & Visualizer Showcase
-
-### 1. Before vs. After Prompt Visualizer
-
-<p align="center">
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 900 300" width="100%" height="100%" style="background-color: #0B0F19; border-radius: 12px; font-family: system-ui, -apple-system, sans-serif;">
-  <text x="450" y="30" text-anchor="middle" fill="#F8FAFC" font-size="15" font-weight="700">PROMPT CONTEXT COMPRESSION COMPARISON</text>
-  
-  <!-- Left Side: Uncompressed -->
-  <g transform="translate(30, 50)">
-    <rect width="400" height="225" rx="8" fill="#1E293B" stroke="#EF4444" stroke-width="1.5"/>
-    <rect width="400" height="32" rx="8" fill="#7F1D1D"/>
-    <text x="15" y="21" fill="#FCA5A5" font-size="12" font-weight="700">❌ Raw Uncompressed History (638 Tokens)</text>
-    <text x="385" y="21" text-anchor="end" fill="#FECACA" font-size="11" font-weight="600">$0.000766 / call</text>
-
-    <rect x="15" y="45" width="370" height="24" rx="4" fill="#0F172A"/>
-    <text x="25" y="61" fill="#94A3B8" font-size="10">System: You are an expert Cloud DevOps Engineer...</text>
-
-    <rect x="15" y="75" width="370" height="42" rx="4" fill="#0F172A"/>
-    <text x="25" y="91" fill="#94A3B8" font-size="10">User Turn 1: Our ingress controller is returning 502 Bad Gateway...</text>
-    <text x="25" y="106" fill="#64748B" font-size="9.5">Assistant: Check pod readiness probes, service endpoints...</text>
-
-    <rect x="15" y="123" width="370" height="42" rx="4" fill="#0F172A"/>
-    <text x="25" y="139" fill="#94A3B8" font-size="10">User Turn 2: What about TLS certificate expiration issues?</text>
-    <text x="25" y="154" fill="#64748B" font-size="9.5">Assistant: Run cert-manager status and inspect secrets...</text>
-
-    <rect x="15" y="171" width="370" height="42" rx="4" fill="#0F172A"/>
-    <text x="25" y="187" fill="#94A3B8" font-size="10">User Turn 3: How do I check the pod readiness probe status?</text>
-    <text x="25" y="202" fill="#38BDF8" font-size="9.5" font-weight="600">Current Query [Target Payload]</text>
-  </g>
-
-  <!-- Center Badge -->
-  <g transform="translate(433, 130)">
-    <circle cx="17" cy="17" r="22" fill="#0EA5E9" filter="url(#glow)"/>
-    <text x="17" y="22" text-anchor="middle" fill="#FFFFFF" font-size="12" font-weight="800">VS</text>
-  </g>
-
-  <!-- Right Side: Compressed -->
-  <g transform="translate(470, 50)">
-    <rect width="400" height="225" rx="8" fill="#1E293B" stroke="#10B981" stroke-width="2"/>
-    <rect width="400" height="32" rx="8" fill="#065F46"/>
-    <text x="15" y="21" fill="#A7F3D0" font-size="12" font-weight="700">⚡ TokenFlow Optimized (165 Tokens)</text>
-    <text x="385" y="21" text-anchor="end" fill="#6EE7B7" font-size="11" font-weight="600">-74.14% Saved</text>
-
-    <rect x="15" y="45" width="370" height="24" rx="4" fill="#0F172A"/>
-    <text x="25" y="61" fill="#34D399" font-size="10" font-weight="600">System: You are an expert Cloud DevOps Engineer...</text>
-
-    <rect x="15" y="75" width="370" height="42" rx="4" fill="#064E3B" stroke="#10B981" stroke-width="1"/>
-    <text x="25" y="91" fill="#6EE7B7" font-size="10" font-weight="700">[SYSTEM MEMORY NOTE]:</text>
-    <text x="25" y="106" fill="#A7F3D0" font-size="9.5">User debugging 502 Bad Gateway on ingress controller.</text>
-
-    <rect x="15" y="123" width="370" height="42" rx="4" fill="#0F172A" stroke="#818CF8" stroke-width="1"/>
-    <text x="25" y="139" fill="#CBD5E1" font-size="10">[RETAINED TOP-K TURN] (Score: 0.912):</text>
-    <text x="25" y="154" fill="#94A3B8" font-size="9.5">User: Our ingress controller is returning 502 Bad Gateway errors.</text>
-
-    <rect x="15" y="171" width="370" height="42" rx="4" fill="#0F172A" stroke="#38BDF8" stroke-width="1"/>
-    <text x="25" y="187" fill="#38BDF8" font-size="10" font-weight="600">User: How do I check the pod readiness probe status?</text>
-    <text x="25" y="202" fill="#7DD3FC" font-size="9.5">Current Query [Preserved 100% Intent]</text>
-  </g>
-</svg>
-</p>
-
----
-
-### 2. Live Recharts Financial & Token Analytics Mockup
-
-<p align="center">
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 900 240" width="100%" height="100%" style="background-color: #0B0F19; border-radius: 12px; font-family: system-ui, -apple-system, sans-serif;">
-  <text x="450" y="28" text-anchor="middle" fill="#F8FAFC" font-size="15" font-weight="700">REAL-TIME COST SAVINGS & TOKEN REDUCTION DASHBOARD</text>
-  
-  <!-- KPI Metric 1 -->
-  <g transform="translate(40, 50)">
-    <rect width="250" height="70" rx="8" fill="#1E293B" stroke="#334155" stroke-width="1"/>
-    <text x="20" y="26" fill="#94A3B8" font-size="11" font-weight="600">TOTAL TOKENS SAVED</text>
-    <text x="20" y="55" fill="#38BDF8" font-size="22" font-weight="800">1,482,910</text>
-    <text x="230" y="55" text-anchor="end" fill="#34D399" font-size="12" font-weight="700">▲ 72.4%</text>
-  </g>
-
-  <!-- KPI Metric 2 -->
-  <g transform="translate(325, 50)">
-    <rect width="250" height="70" rx="8" fill="#1E293B" stroke="#334155" stroke-width="1"/>
-    <text x="20" y="26" fill="#94A3B8" font-size="11" font-weight="600">ESTIMATED COST SAVED</text>
-    <text x="20" y="55" fill="#34D399" font-size="22" font-weight="800">$42.85 USD</text>
-    <text x="230" y="55" text-anchor="end" fill="#6EE7B7" font-size="12" font-weight="700">Live Tier</text>
-  </g>
-
-  <!-- KPI Metric 3 -->
-  <g transform="translate(610, 50)">
-    <rect width="250" height="70" rx="8" fill="#1E293B" stroke="#334155" stroke-width="1"/>
-    <text x="20" y="26" fill="#94A3B8" font-size="11" font-weight="600">REQUESTS PROCESSED</text>
-    <text x="20" y="55" fill="#C084FC" font-size="22" font-weight="800">3,840</text>
-    <text x="230" y="55" text-anchor="end" fill="#E9D5FF" font-size="12" font-weight="700">100% Uptime</text>
-  </g>
-
-  <!-- Recharts Line Visualizer -->
-  <g transform="translate(40, 135)">
-    <rect width="820" height="85" rx="8" fill="#1E293B" stroke="#334155" stroke-width="1"/>
-    <text x="20" y="22" fill="#CBD5E1" font-size="11" font-weight="600">Token Reduction Trend (Last 10 Requests)</text>
-    
-    <!-- Bars / Sparkline -->
-    <path d="M 30 65 L 100 45 L 180 55 L 260 35 L 340 50 L 420 30 L 500 40 L 580 25 L 660 38 L 780 20" fill="none" stroke="#38BDF8" stroke-width="2.5"/>
-    <path d="M 30 65 L 100 45 L 180 55 L 260 35 L 340 50 L 420 30 L 500 40 L 580 25 L 660 38 L 780 20 L 780 75 L 30 75 Z" fill="url(#grad-cyan)" opacity="0.2"/>
-    
-    <circle cx="780" cy="20" r="4" fill="#38BDF8" filter="url(#glow)"/>
-    <text x="780" y="14" text-anchor="middle" fill="#38BDF8" font-size="9" font-weight="700">-74.1%</text>
-  </g>
-</svg>
-</p>
 
 ---
 
