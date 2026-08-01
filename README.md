@@ -2,12 +2,15 @@
 
 > **Production-grade semantic vector ranking & real-time LLM context compression middleware built with FastAPI, Gemini text-embedding-004, and React.**
 
-![Python 3.11](https://img.shields.io/badge/Python-3.11-3776AB?style=for-the-badge&logo=python&logoColor=white)
-![FastAPI](https://img.shields.io/badge/FastAPI-0.110.0-009688?style=for-the-badge&logo=fastapi&logoColor=white)
-![React 18](https://img.shields.io/badge/React-18.0-61DAFB?style=for-the-badge&logo=react&logoColor=black)
-![Google Gemini](https://img.shields.io/badge/Google_Gemini-API-8E75B2?style=for-the-badge&logo=googlegemini&logoColor=white)
-![License MIT](https://img.shields.io/badge/License-MIT-green.svg?style=for-the-badge)
-![Render Deployed](https://img.shields.io/badge/Render-Deployed-46E3B7?style=for-the-badge&logo=render&logoColor=white)
+[![Live Application](https://img.shields.io/badge/🌐_Live_Application-https%3A%2F%2Ftokenflow--ai.onrender.com-00DC82?style=for-the-badge&logoColor=white)](https://tokenflow-ai.onrender.com)
+[![Python 3.11](https://img.shields.io/badge/Python-3.11-3776AB?style=for-the-badge&logo=python&logoColor=white)](https://github.com/NaniToka/TokenFlow-AI)
+[![FastAPI](https://img.shields.io/badge/FastAPI-0.110.0-009688?style=for-the-badge&logo=fastapi&logoColor=white)](https://tokenflow-ai.onrender.com/docs)
+[![React 18](https://img.shields.io/badge/React-18.0-61DAFB?style=for-the-badge&logo=react&logoColor=black)](https://github.com/NaniToka/TokenFlow-AI)
+[![Google Gemini](https://img.shields.io/badge/Google_Gemini-API-8E75B2?style=for-the-badge&logo=googlegemini&logoColor=white)](https://aistudio.google.com/)
+[![Render Deployed](https://img.shields.io/badge/Render-Deployed-46E3B7?style=for-the-badge&logo=render&logoColor=white)](https://tokenflow-ai.onrender.com)
+
+> 🚀 **Live Production Deployment**: [https://tokenflow-ai.onrender.com](https://tokenflow-ai.onrender.com)  
+> 📖 **Interactive API Documentation (Swagger)**: [https://tokenflow-ai.onrender.com/docs](https://tokenflow-ai.onrender.com/docs)
 
 [🌐 Live Application](https://tokenflow-ai.onrender.com) &nbsp;|&nbsp; [📖 Interactive API Docs](https://tokenflow-ai.onrender.com/docs) &nbsp;|&nbsp; [💻 GitHub Repository](https://github.com/NaniToka/TokenFlow-AI) &nbsp;|&nbsp; [👤 Author Portfolio](https://toka-portfolio-2.onrender.com/)
 
