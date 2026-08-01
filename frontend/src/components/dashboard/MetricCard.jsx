@@ -31,26 +31,26 @@ export default function MetricCard({
   };
 
   return (
-    <div className={`glass-card rounded-2xl p-5 relative overflow-hidden transition-all duration-300 ${glowStyles[glowColor] || ''}`}>
-      <div className="flex items-center justify-between mb-3">
-        <span className="text-xs font-semibold uppercase tracking-wider text-zinc-400">{title}</span>
+    <div className={`glass-card rounded-2xl p-4 sm:p-5 relative overflow-hidden min-w-0 transition-all duration-300 ${glowStyles[glowColor] || ''}`}>
+      <div className="flex items-center justify-between mb-2 sm:mb-3 gap-2">
+        <span className="text-[11px] sm:text-xs font-semibold uppercase tracking-wider text-zinc-400 truncate">{title}</span>
         {Icon && (
-          <div className={`w-9 h-9 rounded-xl flex items-center justify-center border ${iconStyles[badgeType]}`}>
-            <Icon className="w-5 h-5" />
+          <div className={`w-8 h-8 sm:w-9 sm:h-9 rounded-xl flex items-center justify-center border shrink-0 ${iconStyles[badgeType]}`}>
+            <Icon className="w-4 h-4 sm:w-5 sm:h-5" />
           </div>
         )}
       </div>
 
-      <div className="flex items-baseline justify-between mt-1">
-        <h3 className="text-2xl font-bold text-zinc-100 tracking-tight">{value}</h3>
+      <div className="flex items-baseline justify-between mt-1 gap-2">
+        <h3 className="text-xl sm:text-2xl font-bold text-zinc-100 tracking-tight truncate">{value}</h3>
         {badgeText && (
-          <span className={`text-[11px] font-semibold px-2 py-0.5 rounded-full border ${badgeStyles[badgeType]}`}>
+          <span className={`text-[10px] sm:text-[11px] font-semibold px-2 py-0.5 rounded-full border shrink-0 ${badgeStyles[badgeType]}`}>
             {badgeText}
           </span>
         )}
       </div>
 
-      {subtitle && <p className="text-xs text-zinc-500 mt-2 font-medium">{subtitle}</p>}
+      {subtitle && <p className="text-[11px] sm:text-xs text-zinc-500 mt-2 font-medium truncate">{subtitle}</p>}
     </div>
   );
 }

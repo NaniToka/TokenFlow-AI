@@ -14,6 +14,7 @@ import { AlertTriangle, CheckCircle2, Code2, Sliders } from 'lucide-react';
 export default function App() {
   const [activeTab, setActiveTab] = useState('optimizer');
   const [isBackendConnected, setIsBackendConnected] = useState(true);
+  const [isMobileOpen, setIsMobileOpen] = useState(false);
   const [stats, setStats] = useState({
     total_requests: 0,
     total_original_tokens: 0,
@@ -119,59 +120,71 @@ export default function App() {
   };
 
   return (
-    <div className="flex min-h-screen bg-zinc-950 text-zinc-100 font-sans relative">
+    <div className="flex min-h-screen bg-zinc-950 text-zinc-100 font-sans relative overflow-x-hidden">
       {/* Toast Alert Notification */}
       {toastMessage && (
-        <div className="fixed bottom-6 right-6 z-50 animate-bounce-short">
+        <div className="fixed bottom-4 right-4 sm:bottom-6 sm:right-6 z-50 animate-bounce-short max-w-[calc(100vw-2rem)]">
           <div className={`flex items-center gap-3 px-4 py-3 rounded-xl border text-xs font-semibold shadow-2xl backdrop-blur-xl ${
             toastMessage.type === 'error'
               ? 'bg-rose-950/90 text-rose-300 border-rose-500/40'
               : 'bg-emerald-950/90 text-emerald-300 border-emerald-500/40'
           }`}>
             {toastMessage.type === 'error' ? (
-              <AlertTriangle className="w-4 h-4 text-rose-400" />
+              <AlertTriangle className="w-4 h-4 text-rose-400 shrink-0" />
             ) : (
-              <CheckCircle2 className="w-4 h-4 text-emerald-400" />
+              <CheckCircle2 className="w-4 h-4 text-emerald-400 shrink-0" />
             )}
-            <span>{toastMessage.message}</span>
+            <span className="truncate">{toastMessage.message}</span>
           </div>
         </div>
       )}
 
-      <Sidebar activeTab={activeTab} setActiveTab={setActiveTab} isBackendConnected={isBackendConnected} />
+      {/* Responsive Sidebar */}
+      <Sidebar
+        activeTab={activeTab}
+        setActiveTab={setActiveTab}
+        isBackendConnected={isBackendConnected}
+        isMobileOpen={isMobileOpen}
+        setIsMobileOpen={setIsMobileOpen}
+      />
 
-      <div className="flex-1 flex flex-col min-w-0">
-        <Header onResetStats={handleReset} isResetting={isResetting} />
+      <div className="flex-1 flex flex-col min-w-0 overflow-x-hidden">
+        {/* Responsive Header */}
+        <Header
+          onResetStats={handleReset}
+          isResetting={isResetting}
+          onToggleMobileMenu={() => setIsMobileOpen((prev) => !prev)}
+        />
 
-        <main className="flex-1 p-8 max-w-7xl w-full mx-auto space-y-8">
+        <main className="flex-1 p-3 sm:p-6 lg:p-8 max-w-7xl w-full mx-auto space-y-6 sm:space-y-8 min-w-0">
           {/* Top KPI Metrics Overview */}
           <StatsOverview stats={stats} />
 
           {/* Tab 1: Prompt Optimizer Workbench & Demo Selector */}
           {activeTab === 'optimizer' && (
-            <div className="space-y-8">
+            <div className="space-y-6 sm:space-y-8 min-w-0">
               {/* Input Mode Selector Bar */}
-              <div className="flex items-center justify-between">
-                <div className="flex items-center gap-2 bg-zinc-900/80 p-1 rounded-xl border border-white/10">
+              <div className="flex items-center justify-between min-w-0">
+                <div className="flex flex-wrap items-center gap-1.5 sm:gap-2 bg-zinc-900/80 p-1 rounded-xl border border-white/10 w-full sm:w-auto">
                   <button
                     onClick={() => setInputMode('demo')}
-                    className={`flex items-center gap-2 px-4 py-2 text-xs font-semibold rounded-lg transition-all ${
+                    className={`flex items-center justify-center gap-2 px-3 sm:px-4 py-2 text-xs font-semibold rounded-lg transition-all flex-1 sm:flex-initial ${
                       inputMode === 'demo'
                         ? 'bg-emerald-500/20 text-emerald-400 border border-emerald-500/30'
                         : 'text-zinc-400 hover:text-zinc-200'
                     }`}
                   >
-                    <Sliders className="w-3.5 h-3.5" /> Built-in Scenarios (25–30 Turns)
+                    <Sliders className="w-3.5 h-3.5" /> Built-in Scenarios
                   </button>
                   <button
                     onClick={() => setInputMode('manual')}
-                    className={`flex items-center gap-2 px-4 py-2 text-xs font-semibold rounded-lg transition-all ${
+                    className={`flex items-center justify-center gap-2 px-3 sm:px-4 py-2 text-xs font-semibold rounded-lg transition-all flex-1 sm:flex-initial ${
                       inputMode === 'manual'
                         ? 'bg-emerald-500/20 text-emerald-400 border border-emerald-500/30'
                         : 'text-zinc-400 hover:text-zinc-200'
                     }`}
                   >
-                    <Code2 className="w-3.5 h-3.5" /> Custom JSON / Input Prompt
+                    <Code2 className="w-3.5 h-3.5" /> Custom Input Prompt
                   </button>
                 </div>
               </div>
@@ -229,33 +242,33 @@ export default function App() {
           {/* Tab 4: API Settings */}
           {activeTab === 'settings' && (
             <Card title="Middleware System Configuration" subtitle="Active settings & Gemini API status">
-              <div className="space-y-4 py-2">
-                <div className="p-4 rounded-xl bg-zinc-950/80 border border-zinc-800 flex items-center justify-between">
+              <div className="space-y-3 sm:space-y-4 py-2 min-w-0">
+                <div className="p-3 sm:p-4 rounded-xl bg-zinc-950/80 border border-zinc-800 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-2 sm:gap-4">
                   <div>
                     <h5 className="text-xs font-bold text-zinc-200">Backend API Base URL</h5>
-                    <p className="text-xs text-zinc-500">FastAPI backend listener endpoint</p>
+                    <p className="text-[11px] text-zinc-500">FastAPI backend listener endpoint</p>
                   </div>
-                  <code className="text-xs text-emerald-400 bg-zinc-900 px-3 py-1 rounded border border-zinc-800 font-mono">
+                  <code className="text-xs text-emerald-400 bg-zinc-900 px-3 py-1 rounded border border-zinc-800 font-mono break-all">
                     http://localhost:8000/api/v1
                   </code>
                 </div>
 
-                <div className="p-4 rounded-xl bg-zinc-950/80 border border-zinc-800 flex items-center justify-between">
+                <div className="p-3 sm:p-4 rounded-xl bg-zinc-950/80 border border-zinc-800 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-2 sm:gap-4">
                   <div>
                     <h5 className="text-xs font-bold text-zinc-200">Embedding Model</h5>
-                    <p className="text-xs text-zinc-500">Google Gemini Vector Embeddings</p>
+                    <p className="text-[11px] text-zinc-500">Google Gemini Vector Embeddings</p>
                   </div>
-                  <code className="text-xs text-violet-400 bg-zinc-900 px-3 py-1 rounded border border-zinc-800 font-mono">
+                  <code className="text-xs text-violet-400 bg-zinc-900 px-3 py-1 rounded border border-zinc-800 font-mono break-all">
                     text-embedding-004 (768 dimensions)
                   </code>
                 </div>
 
-                <div className="p-4 rounded-xl bg-zinc-950/80 border border-zinc-800 flex items-center justify-between">
+                <div className="p-3 sm:p-4 rounded-xl bg-zinc-950/80 border border-zinc-800 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-2 sm:gap-4">
                   <div>
                     <h5 className="text-xs font-bold text-zinc-200">Summarizer Model</h5>
-                    <p className="text-xs text-zinc-500">Context Compressor LLM</p>
+                    <p className="text-[11px] text-zinc-500">Context Compressor LLM</p>
                   </div>
-                  <code className="text-xs text-cyan-400 bg-zinc-900 px-3 py-1 rounded border border-zinc-800 font-mono">
+                  <code className="text-xs text-cyan-400 bg-zinc-900 px-3 py-1 rounded border border-zinc-800 font-mono break-all">
                     gemini-1.5-flash
                   </code>
                 </div>

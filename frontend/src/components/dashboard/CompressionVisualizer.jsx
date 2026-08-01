@@ -17,11 +17,11 @@ export default function CompressionVisualizer({ compressionResult, rawHistory = 
   if (!compressionResult) {
     return (
       <Card title="Prompt Compression Visualizer" subtitle="Compare uncompressed memory vs. TokenFlow optimized prompt">
-        <div className="py-16 flex flex-col items-center justify-center text-center space-y-3 border-2 border-dashed border-zinc-800 rounded-xl bg-zinc-950/40">
+        <div className="py-12 sm:py-16 p-4 flex flex-col items-center justify-center text-center space-y-3 border-2 border-dashed border-zinc-800 rounded-xl bg-zinc-950/40">
           <div className="w-12 h-12 rounded-2xl bg-zinc-900 border border-zinc-800 flex items-center justify-center text-zinc-500">
             <Zap className="w-6 h-6" />
           </div>
-          <h4 className="text-base font-semibold text-zinc-300">No Prompt Processed Yet</h4>
+          <h4 className="text-sm sm:text-base font-semibold text-zinc-300">No Prompt Processed Yet</h4>
           <p className="text-xs text-zinc-500 max-w-sm">
             Load a 30-turn demo scenario or type a custom prompt to view live semantic ranking and before/after token reduction.
           </p>
@@ -52,7 +52,7 @@ export default function CompressionVisualizer({ compressionResult, rawHistory = 
       title="Prompt Compression Visualizer"
       subtitle="Side-by-side semantic memory comparison & turn ranking metadata"
       action={
-        <div className="flex items-center gap-2">
+        <div className="flex flex-wrap items-center gap-2">
           <button
             onClick={handleCopyPrompt}
             className="flex items-center gap-1.5 px-3 py-1 text-xs font-semibold rounded-lg bg-zinc-900 hover:bg-zinc-800 text-zinc-200 border border-zinc-700 transition-all active:scale-95"
@@ -64,15 +64,15 @@ export default function CompressionVisualizer({ compressionResult, rawHistory = 
           <div className="flex items-center gap-1 bg-zinc-950 p-1 rounded-xl border border-white/5">
             <button
               onClick={() => setActiveView('split')}
-              className={`px-3 py-1 text-xs font-semibold rounded-lg transition-all ${
+              className={`px-2.5 py-1 text-xs font-semibold rounded-lg transition-all ${
                 activeView === 'split' ? 'bg-emerald-500/20 text-emerald-400 border border-emerald-500/30' : 'text-zinc-400 hover:text-zinc-200'
               }`}
             >
-              Split View
+              Split
             </button>
             <button
               onClick={() => setActiveView('original')}
-              className={`px-3 py-1 text-xs font-semibold rounded-lg transition-all ${
+              className={`px-2.5 py-1 text-xs font-semibold rounded-lg transition-all ${
                 activeView === 'original' ? 'bg-zinc-800 text-zinc-200' : 'text-zinc-400 hover:text-zinc-200'
               }`}
             >
@@ -80,7 +80,7 @@ export default function CompressionVisualizer({ compressionResult, rawHistory = 
             </button>
             <button
               onClick={() => setActiveView('optimized')}
-              className={`px-3 py-1 text-xs font-semibold rounded-lg transition-all ${
+              className={`px-2.5 py-1 text-xs font-semibold rounded-lg transition-all ${
                 activeView === 'optimized' ? 'bg-emerald-500/20 text-emerald-400' : 'text-zinc-400 hover:text-zinc-200'
               }`}
             >
@@ -91,10 +91,10 @@ export default function CompressionVisualizer({ compressionResult, rawHistory = 
       }
     >
       {/* Compression Progress Bar */}
-      <div className="mb-6 p-4 rounded-xl bg-zinc-950/70 border border-white/5 space-y-2">
-        <div className="flex items-center justify-between text-xs">
+      <div className="mb-6 p-4 rounded-xl bg-zinc-950/70 border border-white/5 space-y-2 min-w-0">
+        <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between text-xs gap-1 sm:gap-0">
           <span className="font-semibold text-zinc-300 flex items-center gap-2">
-            <TrendingDown className="w-4 h-4 text-emerald-400" />
+            <TrendingDown className="w-4 h-4 text-emerald-400 shrink-0" />
             Token Reduction Savings: <span className="text-emerald-400 font-bold">{compression_ratio}%</span>
           </span>
           <span className="text-zinc-400 font-medium">
@@ -114,14 +114,14 @@ export default function CompressionVisualizer({ compressionResult, rawHistory = 
       </div>
 
       {/* Split Comparison Panels */}
-      <div className={`grid gap-6 ${activeView === 'split' ? 'grid-cols-1 lg:grid-cols-2' : 'grid-cols-1'}`}>
+      <div className={`grid gap-4 sm:gap-6 ${activeView === 'split' ? 'grid-cols-1 lg:grid-cols-2' : 'grid-cols-1'}`}>
         {/* Left Panel: Original Uncompressed */}
         {(activeView === 'split' || activeView === 'original') && (
-          <div className="rounded-xl bg-zinc-950/80 border border-zinc-800 p-4 flex flex-col justify-between">
+          <div className="rounded-xl bg-zinc-950/80 border border-zinc-800 p-4 flex flex-col justify-between min-w-0 overflow-x-auto">
             <div>
-              <div className="flex items-center justify-between border-b border-zinc-800 pb-3 mb-3">
+              <div className="flex flex-wrap items-center justify-between border-b border-zinc-800 pb-3 mb-3 gap-2">
                 <span className="text-xs font-bold uppercase tracking-wider text-rose-400 flex items-center gap-1.5">
-                  <FileText className="w-4 h-4" /> Before (Full Raw Context)
+                  <FileText className="w-4 h-4 shrink-0" /> Before (Full Raw Context)
                 </span>
                 <div className="flex items-center gap-2">
                   <span className="text-[11px] font-semibold px-2 py-0.5 rounded bg-zinc-900 border border-zinc-800 text-zinc-300">
@@ -132,20 +132,22 @@ export default function CompressionVisualizer({ compressionResult, rawHistory = 
                   </span>
                 </div>
               </div>
-              <pre className="text-xs text-zinc-400 font-mono whitespace-pre-wrap leading-relaxed max-h-96 overflow-y-auto pr-2 select-all">
-                {originalPromptText}
-              </pre>
+              <div className="overflow-x-auto max-h-96">
+                <pre className="text-xs text-zinc-400 font-mono whitespace-pre-wrap leading-relaxed pr-2 select-all min-w-0">
+                  {originalPromptText}
+                </pre>
+              </div>
             </div>
           </div>
         )}
 
         {/* Right Panel: Optimized Compressed */}
         {(activeView === 'split' || activeView === 'optimized') && (
-          <div className="rounded-xl bg-zinc-950/80 border border-emerald-500/30 p-4 flex flex-col justify-between glow-emerald">
+          <div className="rounded-xl bg-zinc-950/80 border border-emerald-500/30 p-4 flex flex-col justify-between min-w-0 overflow-x-auto glow-emerald">
             <div>
-              <div className="flex items-center justify-between border-b border-emerald-500/20 pb-3 mb-3">
+              <div className="flex flex-wrap items-center justify-between border-b border-emerald-500/20 pb-3 mb-3 gap-2">
                 <span className="text-xs font-bold uppercase tracking-wider text-emerald-400 flex items-center gap-1.5">
-                  <Sparkles className="w-4 h-4 text-emerald-400" /> After (TokenFlow Optimized)
+                  <Sparkles className="w-4 h-4 text-emerald-400 shrink-0" /> After (TokenFlow Optimized)
                 </span>
                 <div className="flex items-center gap-2">
                   <span className="text-[11px] font-semibold px-2 py-0.5 rounded bg-emerald-500/15 text-emerald-300 border border-emerald-500/30">
@@ -161,15 +163,17 @@ export default function CompressionVisualizer({ compressionResult, rawHistory = 
               {summary && (
                 <div className="mb-4 p-3 rounded-lg bg-emerald-500/10 border border-emerald-500/30 text-xs">
                   <div className="flex items-center gap-1.5 text-emerald-400 font-semibold mb-1">
-                    <Zap className="w-3.5 h-3.5" /> Background Context Summary (Gemini 1.5 Flash)
+                    <Zap className="w-3.5 h-3.5 shrink-0" /> Background Context Summary (Gemini 1.5 Flash)
                   </div>
                   <p className="text-zinc-200 leading-relaxed font-sans">{summary}</p>
                 </div>
               )}
 
-              <pre className="text-xs text-zinc-300 font-mono whitespace-pre-wrap leading-relaxed max-h-96 overflow-y-auto pr-2 select-all">
-                {final_prompt}
-              </pre>
+              <div className="overflow-x-auto max-h-96">
+                <pre className="text-xs text-zinc-300 font-mono whitespace-pre-wrap leading-relaxed pr-2 select-all min-w-0">
+                  {final_prompt}
+                </pre>
+              </div>
             </div>
           </div>
         )}
@@ -183,13 +187,13 @@ export default function CompressionVisualizer({ compressionResult, rawHistory = 
           </h4>
           <div className="space-y-2">
             {selected_turns.map((turn, i) => (
-              <div key={i} className="p-2.5 rounded-lg bg-zinc-950/60 border border-zinc-800 text-xs flex items-start gap-3">
-                <span className={`px-2 py-0.5 rounded text-[10px] font-bold uppercase ${
+              <div key={i} className="p-2.5 rounded-lg bg-zinc-950/60 border border-zinc-800 text-xs flex items-start gap-3 min-w-0">
+                <span className={`px-2 py-0.5 rounded text-[10px] font-bold uppercase shrink-0 ${
                   turn.role === 'user' ? 'bg-cyan-500/20 text-cyan-400 border border-cyan-500/30' : 'bg-violet-500/20 text-violet-400 border border-violet-500/30'
                 }`}>
                   {turn.role}
                 </span>
-                <p className="text-zinc-300 flex-1 font-mono">{turn.content}</p>
+                <p className="text-zinc-300 flex-1 font-mono break-words min-w-0">{turn.content}</p>
               </div>
             ))}
           </div>
