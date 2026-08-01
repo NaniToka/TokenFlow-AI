@@ -7,3 +7,4 @@ numpy>=1.26.0
 tiktoken>=0.6.0
 slowapi>=0.1.9
 python-dotenv>=1.0.1
+aiofiles>=23.2.1

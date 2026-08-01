@@ -28,7 +28,7 @@ app.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)
 
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=settings.cors_origins if settings.cors_origins else ["*"],
+    allow_origins=["*"],
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
@@ -80,36 +80,35 @@ def reset_session_stats():
     return {"status": "success", "message": "Session statistics reset successfully."}
 
 
-# Single-Container SPA Static Asset Mounting
+# Static File & Single-Page Application (SPA) Mounting
 base_dir = os.path.dirname(os.path.abspath(__file__))
-possible_static_dirs = [
-    os.path.join(base_dir, "..", "static"),
-    os.path.join(base_dir, "..", "..", "frontend", "dist"),
+possible_dist_dirs = [
+    os.path.abspath(os.path.join(base_dir, "../../frontend/dist")),
+    os.path.abspath(os.path.join(base_dir, "../static")),
 ]
 
-static_dir = None
-for candidate in possible_static_dirs:
+frontend_dist = None
+for candidate in possible_dist_dirs:
     if os.path.exists(candidate) and os.path.isdir(candidate):
-        static_dir = os.path.abspath(candidate)
+        frontend_dist = candidate
         break
 
-if static_dir:
-    assets_dir = os.path.join(static_dir, "assets")
+if frontend_dist and os.path.exists(frontend_dist):
+    assets_dir = os.path.join(frontend_dist, "assets")
     if os.path.exists(assets_dir):
         app.mount("/assets", StaticFiles(directory=assets_dir), name="assets")
 
-    index_file = os.path.join(static_dir, "index.html")
-
     @app.get("/{full_path:path}")
-    async def serve_spa(full_path: str):
-        if full_path.startswith("api/") or full_path == "health":
-            raise HTTPException(status_code=404, detail="API route not found.")
+    async def catch_all(full_path: str):
+        if full_path.startswith("api/"):
+            raise HTTPException(status_code=404, detail="API route not found")
         
-        file_path = os.path.join(static_dir, full_path)
-        if os.path.exists(file_path) and os.path.isfile(file_path):
+        file_path = os.path.join(frontend_dist, full_path)
+        if full_path and os.path.exists(file_path) and os.path.isfile(file_path):
             return FileResponse(file_path)
-        
-        if os.path.exists(index_file):
-            return FileResponse(index_file)
-        
-        raise HTTPException(status_code=404, detail="Frontend asset not found.")
+            
+        index_html = os.path.join(frontend_dist, "index.html")
+        if os.path.exists(index_html):
+            return FileResponse(index_html)
+            
+        raise HTTPException(status_code=404, detail="Frontend asset not found")
