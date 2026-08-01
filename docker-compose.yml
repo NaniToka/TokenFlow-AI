@@ -1,0 +1,14 @@
+version: '3.8'
+
+services:
+  tokenflow-app:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    ports:
+      - "8000:8000"
+    environment:
+      - GEMINI_API_KEY=${GEMINI_API_KEY}
+      - ALLOWED_ORIGINS=*
+      - ENVIRONMENT=production
+    restart: unless-stopped

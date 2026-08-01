@@ -1,0 +1,47 @@
+@import "tailwindcss";
+
+@layer base {
+  body {
+    @apply bg-zinc-950 text-zinc-100 font-sans antialiased selection:bg-emerald-500/30 selection:text-emerald-200 min-h-screen overflow-x-hidden;
+  }
+}
+
+.glass-panel {
+  @apply bg-zinc-900/70 backdrop-blur-xl border border-white/10 shadow-xl shadow-black/40;
+}
+
+.glass-card {
+  @apply bg-zinc-900/60 backdrop-blur-lg border border-white/10 hover:border-white/20 transition-all duration-300 shadow-lg shadow-black/30;
+}
+
+.glass-input {
+  @apply bg-zinc-950/80 border border-zinc-800 focus:border-emerald-500/60 focus:ring-2 focus:ring-emerald-500/20 text-zinc-100 placeholder-zinc-500 rounded-lg outline-none transition-all;
+}
+
+.glow-emerald {
+  box-shadow: 0 0 25px -5px rgba(16, 185, 129, 0.15);
+}
+
+.glow-cyan {
+  box-shadow: 0 0 25px -5px rgba(6, 182, 212, 0.15);
+}
+
+.glow-violet {
+  box-shadow: 0 0 25px -5px rgba(139, 92, 246, 0.15);
+}
+
+/* Custom Scrollbar */
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+::-webkit-scrollbar-track {
+  background: #09090b;
+}
+::-webkit-scrollbar-thumb {
+  background: #27272a;
+  border-radius: 3px;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: #3f3f46;
+}
