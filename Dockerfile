@@ -19,6 +19,9 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     curl \
     && rm -rf /var/lib/apt/lists/*
 
+# Add non-root user for security
+RUN groupadd -r appgroup && useradd -r -g appgroup -s /sbin/nologin appuser
+
 # Copy backend requirements and install
 COPY backend/requirements.txt ./backend/requirements.txt
 RUN pip install --no-cache-dir -r ./backend/requirements.txt
@@ -29,7 +32,13 @@ COPY backend/ ./backend/
 # Copy built frontend static assets into backend/static for FastAPI to serve
 COPY --from=frontend-builder /app/frontend/dist ./backend/static
 
+# Change ownership of the app directory
+RUN chown -R appuser:appgroup /app
+
 WORKDIR /app/backend
 EXPOSE 8000
+
+# Switch to non-root user
+USER appuser
 
 CMD ["uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8000"]
