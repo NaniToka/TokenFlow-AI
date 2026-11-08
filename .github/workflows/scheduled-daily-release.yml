@@ -1,0 +1,98 @@
+name: Scheduled Daily Release Engine
+
+on:
+  schedule:
+    # 05:30 UTC = 11:00 AM IST (Primary trigger)
+    - cron: '30 5 * * *'
+    # 12:00 UTC = 17:30 PM IST (Backup retry trigger)
+    - cron: '0 12 * * *'
+  workflow_dispatch:
+    inputs:
+      target_release_day:
+        description: 'Release day to deploy (auto, 2026-11-11, 2026-11-12, 2026-11-13, 2026-11-14)'
+        required: false
+        default: 'auto'
+
+permissions:
+  contents: write
+
+jobs:
+  scheduled-release:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          ref: main
+
+      - name: Configure Git Identity
+        run: |
+          git config --global user.name "NaniToka"
+          git config --global user.email "tokananiy@gmail.com"
+
+      - name: Determine Target Release Branch
+        id: release-info
+        run: |
+          INPUT_DAY="${{ github.event.inputs.target_release_day }}"
+          if [ -n "$INPUT_DAY" ] && [ "$INPUT_DAY" != "auto" ]; then
+            RELEASE_DATE="$INPUT_DAY"
+          else
+            RELEASE_DATE=$(TZ='Asia/Kolkata' date +%Y-%m-%d)
+          fi
+          echo "Target Release Date (IST): $RELEASE_DATE"
+
+          case "$RELEASE_DATE" in
+            "2026-11-11")
+              TARGET_BRANCH="release/2026-11-11-core-optimization"
+              RELEASE_TAG="v0.2.1-core-optimization"
+              ;;
+            "2026-11-12")
+              TARGET_BRANCH="release/2026-11-12-test-resilience"
+              RELEASE_TAG="v0.2.2-test-resilience"
+              ;;
+            "2026-11-13")
+              TARGET_BRANCH="release/2026-11-13-telemetry-metrics"
+              RELEASE_TAG="v0.2.3-telemetry-metrics"
+              ;;
+            "2026-11-14")
+              TARGET_BRANCH="release/2026-11-14-api-documentation"
+              RELEASE_TAG="v0.2.4-api-documentation"
+              ;;
+            *)
+              echo "No scheduled release configured for date: $RELEASE_DATE"
+              echo "should_run=false" >> $GITHUB_OUTPUT
+              exit 0
+              ;;
+          esac
+
+          echo "should_run=true" >> $GITHUB_OUTPUT
+          echo "target_branch=$TARGET_BRANCH" >> $GITHUB_OUTPUT
+          echo "release_tag=$RELEASE_TAG" >> $GITHUB_OUTPUT
+
+      - name: Fast-Forward Merge Daily Commits to Main
+        if: steps.release-info.outputs.should_run == 'true'
+        run: |
+          TARGET="origin/${{ steps.release-info.outputs.target_branch }}"
+          TAG="${{ steps.release-info.outputs.release_tag }}"
+
+          echo "Fetching latest origin..."
+          git fetch origin
+
+          # Check if target branch is already fully merged into main
+          if git merge-base --is-ancestor "$TARGET" HEAD; then
+            echo "Target branch $TARGET is already merged into main. Skipping merge."
+            exit 0
+          fi
+
+          echo "Fast-forward merging $TARGET into main..."
+          git merge --ff-only "$TARGET"
+
+          echo "Pushing new commits to origin main..."
+          git push origin main
+
+          echo "Tagging release $TAG..."
+          git tag -a "$TAG" -m "Automated verified release: $TAG"
+          git push origin "$TAG" || echo "Tag push completed or already present"
+
+          echo "Successfully published daily release for ${{ steps.release-info.outputs.target_branch }}!"
