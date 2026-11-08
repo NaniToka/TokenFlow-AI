@@ -4,6 +4,16 @@
 
 [![CI](https://github.com/NaniToka/TokenFlow-AI/actions/workflows/ci.yml/badge.svg)](https://github.com/NaniToka/TokenFlow-AI/actions)
 [![Coverage](https://img.shields.io/badge/Coverage-92%25-brightgreen.svg)](#)
+![Python](https://img.shields.io/badge/Python-3.11-3776AB?logo=python&logoColor=white)
+![FastAPI](https://img.shields.io/badge/FastAPI-009688?logo=fastapi&logoColor=white)
+![Docker](https://img.shields.io/badge/Docker-2496ED?logo=docker&logoColor=white)
+![Gemini](https://img.shields.io/badge/Gemini%20API-4285F4?logo=googlegemini&logoColor=white)
+
+## 🎬 Demo
+
+<!-- TODO: drag-and-drop a 30–60s screen recording here (GitHub hosts it natively), then embed as: ![Demo](<uploaded-url>) -->
+
+> Can't see a video yet? Reproduce the result live: `docker compose up -d` (Quickstart below), then run `python benchmarks/run.py` — it prints the before/after token table in under a minute. Recording script: [`demo/SCRIPT.md`](demo/SCRIPT.md).
 
 ## ⚡ The Problem
 Modern conversational AI workflows suffer from a compounding engineering challenge: **re-sending full uncompressed chat histories on every turn scales input tokens quadratically**. This inflates API costs, degrades Time-To-First-Token (TTFT), and risks context window exhaustion without adding meaningful signal.
@@ -52,6 +62,16 @@ cd TokenFlow-AI
 cp backend/.env.example backend/.env
 docker compose up -d
 curl http://localhost:8000/api/v1/health
+```
+
+## 🧪 Verify it yourself
+
+```bash
+# run the test suite (CI enforces these)
+pytest backend/tests -q
+
+# reproduce the benchmark table above
+python benchmarks/run.py
 ```
 
 ## 📖 Documentation & Links
