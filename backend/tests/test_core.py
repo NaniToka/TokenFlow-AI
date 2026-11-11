@@ -1,7 +1,25 @@
 import pytest
 from app.schemas import Turn
 from app.services.memory_ranker import cosine_similarity, compute_recency_weight, _lexical_similarity, rank_turns
-from app.utils.token_counter import count_tokens
+from app.utils.embeddings import batch_cosine_similarity_matrix
+from app.utils.token_counter import count_tokens, calculate_gemini_cost
+
+
+def test_batch_cosine_similarity_matrix():
+    query = [1.0, 0.0, 0.0]
+    candidates = [
+        [1.0, 0.0, 0.0],   # Identical -> 1.0
+        [0.0, 1.0, 0.0],   # Orthogonal -> 0.0
+        [-1.0, 0.0, 0.0],  # Opposite -> -1.0
+        [],                # Empty -> 0.0
+    ]
+    scores = batch_cosine_similarity_matrix(query, candidates)
+    assert len(scores) == 4
+    assert pytest.approx(scores[0], 0.001) == 1.0
+    assert pytest.approx(scores[1], 0.001) == 0.0
+    assert pytest.approx(scores[2], 0.001) == -1.0
+    assert scores[3] == 0.0
+
 
 def test_cosine_similarity():
     # Identical vectors
