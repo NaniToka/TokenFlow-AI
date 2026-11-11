@@ -1,6 +1,12 @@
 import pytest
 from app.schemas import Turn
-from app.services.memory_ranker import cosine_similarity, compute_recency_weight, _lexical_similarity, rank_turns
+from app.services.memory_ranker import (
+    cosine_similarity,
+    compute_recency_weight,
+    _lexical_similarity,
+    rank_turns,
+    AdaptiveDecayTuner,
+)
 from app.utils.embeddings import batch_cosine_similarity_matrix
 from app.utils.token_counter import count_tokens, calculate_gemini_cost
 
@@ -64,3 +70,30 @@ def test_token_counter():
     tokens = count_tokens(text)
     assert tokens > 0
     assert isinstance(tokens, int)
+
+
+def test_adaptive_decay_tuner():
+    tuner = AdaptiveDecayTuner(base_decay=0.05, min_decay=0.01, max_decay=0.15)
+    
+    # Short conversation (<=5 turns) should use max_decay (rapid fade)
+    assert tuner.calculate_decay_factor(5) == 0.15
+    # Medium conversation (<=20 turns) should use base_decay
+    assert tuner.calculate_decay_factor(15) == 0.05
+    # Long conversation should scale down decay to preserve context
+    decay_100 = tuner.calculate_decay_factor(100)
+    assert 0.01 <= decay_100 < 0.05
+    
+    # Half-life calculation
+    half_life = tuner.get_half_life_turns(0.05)
+    assert pytest.approx(half_life, 0.1) == 13.86
+    assert tuner.get_half_life_turns(0.0) == float('inf')
+
+
+def test_calculate_gemini_cost_models():
+    # 1 million tokens on Flash input ($0.075)
+    assert pytest.approx(calculate_gemini_cost(1_000_000, is_input=True, model="gemini-1.5-flash")) == 0.075
+    # 1 million tokens on Pro input ($1.25)
+    assert pytest.approx(calculate_gemini_cost(1_000_000, is_input=True, model="gemini-1.5-pro")) == 1.25
+    # Zero tokens
+    assert calculate_gemini_cost(0) == 0.0
+
