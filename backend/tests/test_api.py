@@ -67,3 +67,46 @@ def test_compress_endpoint_huge_input():
     response = client.post("/api/v1/compress", json=payload)
     assert response.status_code == 200
     assert response.json()["compressed_tokens"] > 0
+
+
+def test_compress_endpoint_invalid_role():
+    payload = {
+        "history": [
+            {"role": "unsupported_role", "content": "hello"}
+        ],
+        "current_message": "test",
+    }
+    response = client.post("/api/v1/compress", json=payload)
+    assert response.status_code == 422
+
+
+def test_compress_endpoint_role_normalization():
+    payload = {
+        "history": [
+            {"role": "USER", "content": "hello from uppercase user"},
+            {"role": "Model", "content": "hello from titlecase model"}
+        ],
+        "current_message": "test",
+    }
+    response = client.post("/api/v1/compress", json=payload)
+    assert response.status_code == 200
+
+
+def test_compress_endpoint_top_k_bounds():
+    # top_k must be between 1 and 20
+    payload_too_high = {
+        "history": [],
+        "current_message": "test",
+        "top_k": 25,
+    }
+    res_high = client.post("/api/v1/compress", json=payload_too_high)
+    assert res_high.status_code == 422
+
+    payload_zero = {
+        "history": [],
+        "current_message": "test",
+        "top_k": 0,
+    }
+    res_zero = client.post("/api/v1/compress", json=payload_zero)
+    assert res_zero.status_code == 422
+
