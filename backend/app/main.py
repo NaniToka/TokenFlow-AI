@@ -41,6 +41,33 @@ def health_check():
     return {"status": "healthy", "service": "TokenFlow AI", "version": "1.0.0"}
 
 
+@app.get("/ready")
+@app.get("/api/v1/ready")
+def readiness_probe():
+    """
+    Readiness probe validating internal component state:
+    - Verifies tiktoken encoding availability
+    - Verifies tokenizer pipeline functionality
+    """
+    try:
+        from app.utils.token_counter import count_tokens
+        token_test = count_tokens("readiness probe test")
+        if token_test <= 0:
+            raise ValueError("Tokenizer returned non-positive count")
+        return {
+            "status": "ready",
+            "service": "TokenFlow AI",
+            "checks": {
+                "tokenizer": "ok",
+                "in_memory_pipeline": "ready",
+            }
+        }
+    except Exception as e:
+        logger.error(f"Readiness check failed: {e}")
+        raise HTTPException(status_code=503, detail="Service Not Ready")
+
+
+
 @app.post("/api/v1/compress", response_model=CompressResponse)
 @limiter.limit(settings.RATE_LIMIT_PER_MINUTE)
 def compress_prompt(request: Request, body: CompressRequest):
