@@ -2,7 +2,7 @@ import os
 import time
 import uuid
 import logging
-from fastapi import FastAPI, Request, HTTPException
+from fastapi import FastAPI, Request, Response, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
 from fastapi.responses import FileResponse
@@ -14,6 +14,7 @@ from app.config import settings
 from app.schemas import CompressRequest, CompressResponse
 from app.services.assembler import process_compression
 from app.services.stats_logger import stats_tracker
+from app.utils.metrics import metrics_registry
 
 logger = logging.getLogger(__name__)
 
@@ -83,6 +84,14 @@ def readiness_probe():
         raise HTTPException(status_code=503, detail="Service Not Ready")
 
 
+@app.get("/metrics")
+def get_prometheus_metrics():
+    """Exposes real-time token compression and latency metrics for Prometheus."""
+    content = metrics_registry.generate_prometheus_output()
+    return Response(content=content, media_type="text/plain; version=0.0.4; charset=utf-8")
+
+
+
 
 @app.post("/api/v1/compress", response_model=CompressResponse)
 @limiter.limit(settings.RATE_LIMIT_PER_MINUTE)
@@ -95,10 +104,21 @@ def compress_prompt(request: Request, body: CompressRequest):
         if not body.current_message or not body.current_message.strip():
             raise HTTPException(status_code=400, detail="current_message parameter cannot be empty.")
         
-        return process_compression(body)
+        start = time.perf_counter()
+        resp = process_compression(body)
+        duration = time.perf_counter() - start
+        metrics_registry.record_request(
+            original_tokens=resp.original_tokens,
+            compressed_tokens=resp.compressed_tokens,
+            duration_seconds=duration,
+            success=True,
+        )
+        return resp
     except HTTPException:
+        metrics_registry.record_request(0, 0, 0.0, success=False)
         raise
     except Exception as e:
+        metrics_registry.record_request(0, 0, 0.0, success=False)
         logger.error(f"Error executing prompt compression pipeline: {e}", exc_info=True)
         raise HTTPException(
             status_code=500,
