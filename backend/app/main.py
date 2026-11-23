@@ -12,7 +12,8 @@ from typing import Any, Dict
 from fastapi import FastAPI, Request, HTTPException, WebSocket, WebSocketDisconnect, Depends
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
-from fastapi.responses import FileResponse, JSONResponse
+from fastapi.responses import FileResponse, JSONResponse, PlainTextResponse
+from app.utils.metrics import metrics_registry
 from fastapi.exceptions import RequestValidationError
 from slowapi import Limiter, _rate_limit_exceeded_handler
 from slowapi.util import get_remote_address
@@ -229,6 +230,15 @@ async def websocket_compress(websocket: WebSocket):
 
 
 # --- Analytics & Telemetry ---
+@app.get("/metrics", tags=["Analytics"], response_class=PlainTextResponse)
+def get_prometheus_metrics():
+    """Prometheus metrics scraping endpoint."""
+    return PlainTextResponse(
+        metrics_registry.generate_prometheus_output(),
+        media_type="text/plain; version=0.0.4; charset=utf-8",
+    )
+
+
 @app.get("/api/v1/stats", tags=["Analytics"])
 def get_session_stats(tracker: StatsTracker = Depends(get_stats_tracker)):
     """Returns cumulative session analytics and request history breakdown."""
@@ -262,7 +272,7 @@ if frontend_dist and os.path.exists(frontend_dist):
 
     @app.get("/{full_path:path}", include_in_schema=False)
     async def catch_all(full_path: str):
-        if full_path.startswith("api/") or full_path.startswith("docs") or full_path.startswith("redoc") or full_path.startswith("openapi.json"):
+        if full_path.startswith("api/") or full_path.startswith("docs") or full_path.startswith("redoc") or full_path.startswith("openapi.json") or full_path == "metrics":
             raise HTTPException(status_code=404, detail="API route not found")
 
         file_path = os.path.join(frontend_dist, full_path)

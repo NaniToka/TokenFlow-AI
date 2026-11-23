@@ -53,16 +53,20 @@ def count_tokens(text: str, model: str = "cl100k_base") -> int:
     return max(1, est_count) if text.strip() else 0
 
 
-def calculate_gemini_cost(tokens: int, is_input: bool = True) -> float:
+def calculate_gemini_cost(tokens: int, is_input: bool = True, model: str = "gemini-1.5-flash") -> float:
     """
-    Calculates USD cost based on standard Gemini 1.5 Flash pricing:
-    - Input tokens: $0.075 per 1,000,000 tokens
-    - Output tokens: $0.30 per 1,000,000 tokens
+    Calculates USD cost based on standard Gemini pricing:
+    - Gemini 1.5 Flash: $0.075 input / $0.30 output per 1M tokens
+    - Gemini 1.5 Pro: $1.25 input / $5.00 output per 1M tokens
     """
     if tokens <= 0:
         return 0.0
 
-    rate_per_million = 0.075 if is_input else 0.30
+    if "pro" in model.lower():
+        rate_per_million = 1.25 if is_input else 5.0
+    else:
+        rate_per_million = 0.075 if is_input else 0.30
+
     cost = (tokens / 1_000_000.0) * rate_per_million
     return round(cost, 8)
 
