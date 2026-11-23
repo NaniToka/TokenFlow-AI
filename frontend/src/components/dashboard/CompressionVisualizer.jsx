@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Zap, Sparkles, FileText, TrendingDown, Copy, Check } from 'lucide-react';
+import { Zap, Sparkles, FileText, TrendingDown, Copy, Check, Download, FileCode } from 'lucide-react';
 import Card from '../common/Card';
 
 export default function CompressionVisualizer({ compressionResult, rawHistory = [], currentMessage = '' }) {
@@ -12,6 +12,49 @@ export default function CompressionVisualizer({ compressionResult, rawHistory = 
       setCopied(true);
       setTimeout(() => setCopied(false), 2000);
     }
+  };
+
+  const handleDownloadMarkdown = () => {
+    if (!compressionResult) return;
+    const { summary, selected_turns, final_prompt, original_tokens, compressed_tokens, tokens_saved, cost_saved_usd, compression_ratio } = compressionResult;
+    const turnsStr = (selected_turns || []).map(t => `- **${t.role.toUpperCase()}**: ${t.content}`).join('\n');
+    const md = `# TokenFlow AI - Context Compression Report
+
+## Summary Metrics
+- **Original Tokens**: ${original_tokens}
+- **Compressed Tokens**: ${compressed_tokens}
+- **Tokens Saved**: ${tokens_saved} (${compression_ratio}%)
+- **Cost Saved**: $${cost_saved_usd.toFixed(6)}
+
+## Background Summary
+> ${summary || 'None required'}
+
+## Retained Turns
+${turnsStr}
+
+## Final Optimized Prompt
+\`\`\`text
+${final_prompt}
+\`\`\`
+`;
+    const blob = new Blob([md], { type: 'text/markdown' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `tokenflow_report_${Date.now()}.md`;
+    a.click();
+    URL.revokeObjectURL(url);
+  };
+
+  const handleDownloadJson = () => {
+    if (!compressionResult) return;
+    const blob = new Blob([JSON.stringify(compressionResult, null, 2)], { type: 'application/json' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `tokenflow_payload_${Date.now()}.json`;
+    a.click();
+    URL.revokeObjectURL(url);
   };
 
   if (!compressionResult) {
@@ -56,9 +99,28 @@ export default function CompressionVisualizer({ compressionResult, rawHistory = 
           <button
             onClick={handleCopyPrompt}
             className="flex items-center gap-1.5 px-3 py-1 text-xs font-semibold rounded-lg bg-zinc-900 hover:bg-zinc-800 text-zinc-200 border border-zinc-700 transition-all active:scale-95"
+            title="Copy to clipboard"
           >
             {copied ? <Check className="w-3.5 h-3.5 text-emerald-400" /> : <Copy className="w-3.5 h-3.5 text-zinc-400" />}
-            <span>{copied ? 'Copied!' : 'Copy Final Prompt'}</span>
+            <span>{copied ? 'Copied!' : 'Copy'}</span>
+          </button>
+
+          <button
+            onClick={handleDownloadMarkdown}
+            className="flex items-center gap-1.5 px-2.5 py-1 text-xs font-semibold rounded-lg bg-zinc-900 hover:bg-zinc-800 text-zinc-300 border border-zinc-800 transition-all active:scale-95"
+            title="Download Markdown Report"
+          >
+            <Download className="w-3.5 h-3.5 text-cyan-400" />
+            <span className="hidden sm:inline">Report (.md)</span>
+          </button>
+
+          <button
+            onClick={handleDownloadJson}
+            className="flex items-center gap-1.5 px-2.5 py-1 text-xs font-semibold rounded-lg bg-zinc-900 hover:bg-zinc-800 text-zinc-300 border border-zinc-800 transition-all active:scale-95"
+            title="Export JSON payload"
+          >
+            <FileCode className="w-3.5 h-3.5 text-violet-400" />
+            <span className="hidden sm:inline">JSON</span>
           </button>
 
           <div className="flex items-center gap-1 bg-zinc-950 p-1 rounded-xl border border-white/5">
