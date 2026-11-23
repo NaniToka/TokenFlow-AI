@@ -25,3 +25,8 @@ backend/static/
 .env
 venv/
 __pycache__/
+
+# Coverage
+.coverage
+*.xml
+coverage.xml
