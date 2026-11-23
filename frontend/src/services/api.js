@@ -7,11 +7,16 @@ const apiClient = axios.create({
   headers: {
     'Content-Type': 'application/json',
   },
-  timeout: 15000,
+  timeout: 20000,
 });
 
 export const compressPrompt = async (payload) => {
   const response = await apiClient.post('/compress', payload);
+  return response.data;
+};
+
+export const batchCompressPrompts = async (requests) => {
+  const response = await apiClient.post('/compress/batch', { requests });
   return response.data;
 };
 
@@ -22,6 +27,11 @@ export const getStats = async () => {
 
 export const resetStats = async () => {
   const response = await apiClient.post('/stats/reset');
+  return response.data;
+};
+
+export const getHealth = async () => {
+  const response = await apiClient.get('/health');
   return response.data;
 };
 
