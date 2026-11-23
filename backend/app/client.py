@@ -3,7 +3,8 @@ Lightweight Python SDK client for TokenFlow-AI.
 Enables clean, programmatic integration of prompt compression middleware into any LLM application.
 """
 
-from typing import List, Dict, Any, Optional
+from typing import Any
+
 import requests
 
 
@@ -15,13 +16,13 @@ class TokenFlowClient:
         self.timeout = timeout
         self.session = requests.Session()
 
-    def health(self) -> Dict[str, Any]:
+    def health(self) -> dict[str, Any]:
         """Checks liveness status of the TokenFlow server."""
         resp = self.session.get(f"{self.base_url}/api/v1/health", timeout=self.timeout)
         resp.raise_for_status()
         return resp.json()
 
-    def ready(self) -> Dict[str, Any]:
+    def ready(self) -> dict[str, Any]:
         """Checks readiness status of the TokenFlow server and underlying components."""
         resp = self.session.get(f"{self.base_url}/api/v1/ready", timeout=self.timeout)
         resp.raise_for_status()
@@ -29,13 +30,13 @@ class TokenFlowClient:
 
     def compress(
         self,
-        history: List[Dict[str, str]],
+        history: list[dict[str, str]],
         current_message: str,
-        system_instruction: Optional[str] = "You are a helpful AI assistant.",
+        system_instruction: str | None = "You are a helpful AI assistant.",
         top_k: int = 3,
         alpha: float = 0.7,
-        correlation_id: Optional[str] = None,
-    ) -> Dict[str, Any]:
+        correlation_id: str | None = None,
+    ) -> dict[str, Any]:
         """
         Compresses dialogue history and packs relevant context into an optimized prompt.
         """

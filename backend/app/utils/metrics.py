@@ -3,8 +3,7 @@ Prometheus Metrics Registry for TokenFlow-AI.
 Tracks request counts, original vs compressed tokens, savings, and latency distributions.
 """
 
-import time
-from typing import Dict, Any
+from typing import Any
 
 
 class MetricsRegistry:
@@ -58,7 +57,7 @@ class MetricsRegistry:
         ]
         return "\n".join(lines) + "\n"
 
-    def get_stats_dict(self) -> Dict[str, Any]:
+    def get_stats_dict(self) -> dict[str, Any]:
         avg_latency = (self._latency_sum / self._latency_count) if self._latency_count > 0 else 0.0
         return {
             "requests_total": self._requests_total,

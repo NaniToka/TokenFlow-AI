@@ -5,10 +5,11 @@ Indexes text chunks in-memory, scores them against user queries using
 hybrid BM25 and dense embeddings, and returns top-K context spans.
 """
 
-from typing import List, Dict, Any
+from typing import Any
+
+from app.services.llm.client import LLMClientManager
 from app.services.rag.chunker import SemanticChunker, TextChunk
 from app.services.ranking.engine import BM25Scorer, cosine_similarity
-from app.services.llm.client import LLMClientManager
 
 
 class ContextRetriever:
@@ -17,17 +18,16 @@ class ContextRetriever:
     Supports in-memory indexing, semantic chunking, and dual-scoring retrieval.
     """
 
-    def __init__(self, llm_client: LLMClientManager = None, chunk_size: int = 400, chunk_overlap: int = 80):
+    def __init__(self, llm_client: LLMClientManager | None = None, chunk_size: int = 400, chunk_overlap: int = 80):
         self.chunker = SemanticChunker(chunk_size=chunk_size, chunk_overlap=chunk_overlap)
         self.llm_client = llm_client
         self.bm25 = BM25Scorer()
-        self._chunks: List[TextChunk] = []
-        self._embeddings: List[List[float]] = []
+        self._chunks: list[TextChunk] = []
+        self._embeddings: list[list[float]] = []
 
-    def index_document(self, text: str, metadata: Dict[str, Any] = None) -> int:
+    def index_document(self, text: str, metadata: dict[str, Any] | None = None) -> int:
         """Chunks and indexes a document for retrieval. Returns total indexed chunks."""
         new_chunks = self.chunker.split_text(text, metadata)
-        start_idx = len(self._chunks)
         self._chunks.extend(new_chunks)
 
         if self.llm_client and self.llm_client.is_available:
@@ -39,7 +39,7 @@ class ContextRetriever:
 
         return len(new_chunks)
 
-    def retrieve(self, query: str, top_k: int = 3, alpha: float = 0.5) -> List[Dict[str, Any]]:
+    def retrieve(self, query: str, top_k: int = 3, alpha: float = 0.5) -> list[dict[str, Any]]:
         """
         Retrieves the top-K relevant chunks for a given query.
         Blends BM25 lexical match and dense semantic similarity.
@@ -52,7 +52,7 @@ class ContextRetriever:
 
         # Dense similarity
         query_vec = self.llm_client.get_embedding(query) if self.llm_client and self.llm_client.is_available else []
-        
+
         results = []
         for i, chunk in enumerate(self._chunks):
             chunk_vec = self._embeddings[i] if i < len(self._embeddings) else []
@@ -70,7 +70,7 @@ class ContextRetriever:
                 "metadata": chunk.metadata,
             })
 
-        results.sort(key=lambda x: x["hybrid_score"], reverse=True)
+        results.sort(key=lambda x: float(str(x["hybrid_score"])), reverse=True)
         return results[:top_k]
 
     def clear(self):

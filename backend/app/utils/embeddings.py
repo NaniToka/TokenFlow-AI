@@ -1,7 +1,8 @@
 import logging
+
 import numpy as np
-from typing import List
 from google import genai
+
 from app.config import settings
 
 logger = logging.getLogger(__name__)
@@ -19,7 +20,7 @@ def _get_client() -> genai.Client | None:
         return None
 
 
-def get_embedding(text: str, model: str = "text-embedding-004") -> List[float]:
+def get_embedding(text: str, model: str = "text-embedding-004") -> list[float]:
     """
     Generates a vector embedding for a single text using Gemini text-embedding-004.
     Returns a list of floats, or an empty list if an error occurs.
@@ -44,7 +45,7 @@ def get_embedding(text: str, model: str = "text-embedding-004") -> List[float]:
         return []
 
 
-def get_batch_embeddings(texts: List[str], model: str = "text-embedding-004") -> List[List[float]]:
+def get_batch_embeddings(texts: list[str], model: str = "text-embedding-004") -> list[list[float]]:
     """
     Generates vector embeddings for a list of text strings efficiently using Gemini text-embedding-004.
     Returns a list of float vectors matching the order of input texts.
@@ -63,7 +64,7 @@ def get_batch_embeddings(texts: List[str], model: str = "text-embedding-004") ->
         )
         if response.embeddings and len(response.embeddings) == len(texts):
             return [emb.values or [] for emb in response.embeddings]
-        
+
         # Fallback if structure varies
         embeddings = []
         if response.embeddings:
@@ -81,7 +82,7 @@ def get_batch_embeddings(texts: List[str], model: str = "text-embedding-004") ->
         return results
 
 
-def batch_cosine_similarity_matrix(query_vec: List[float], candidate_vecs: List[List[float]]) -> List[float]:
+def batch_cosine_similarity_matrix(query_vec: list[float], candidate_vecs: list[list[float]]) -> list[float]:
     """
     Computes cosine similarity between a single query vector and multiple candidate vectors
     using vectorized NumPy operations for high throughput.

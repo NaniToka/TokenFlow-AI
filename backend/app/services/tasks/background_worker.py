@@ -6,11 +6,11 @@ without blocking the FastAPI event loop, providing task status tracking.
 """
 
 import asyncio
-import uuid
 import time
-from typing import Dict, Any, Optional
-from dataclasses import dataclass, field
+import uuid
+from dataclasses import dataclass
 from enum import Enum
+from typing import Any
 
 
 class TaskStatus(str, Enum):
@@ -25,8 +25,8 @@ class BackgroundTask:
     task_id: str
     created_at: float
     status: TaskStatus = TaskStatus.PENDING
-    result: Optional[Any] = None
-    error: Optional[str] = None
+    result: Any | None = None
+    error: str | None = None
     duration_ms: float = 0.0
 
 
@@ -34,7 +34,7 @@ class AsyncTaskQueue:
     """Manages ephemeral background jobs in memory."""
 
     def __init__(self):
-        self._tasks: Dict[str, BackgroundTask] = {}
+        self._tasks: dict[str, BackgroundTask] = {}
 
     def create_task(self) -> str:
         task_id = str(uuid.uuid4())
@@ -45,7 +45,7 @@ class AsyncTaskQueue:
         )
         return task_id
 
-    def get_task(self, task_id: str) -> Optional[BackgroundTask]:
+    def get_task(self, task_id: str) -> BackgroundTask | None:
         return self._tasks.get(task_id)
 
     async def execute_task(self, task_id: str, coro):

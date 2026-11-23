@@ -10,7 +10,6 @@ Provides a unified interface for:
 from __future__ import annotations
 
 import hashlib
-from typing import List, Optional
 
 from google import genai
 
@@ -33,7 +32,7 @@ class LLMClientManager:
 
     def __init__(self, config: LLMConfig):
         self._config = config
-        self._client: Optional[genai.Client] = None
+        self._client: genai.Client | None = None
         self._initialized = False
         self._init_client()
 
@@ -56,7 +55,7 @@ class LLMClientManager:
         """Check if the LLM client is initialized and available."""
         return self._initialized and self._client is not None
 
-    def get_embedding(self, text: str) -> List[float]:
+    def get_embedding(self, text: str) -> list[float]:
         """
         Generate a vector embedding for a single text.
 
@@ -65,7 +64,7 @@ class LLMClientManager:
         if not text or not text.strip():
             return []
 
-        if not self.is_available:
+        if not self.is_available or self._client is None:
             return []
 
         try:
@@ -80,7 +79,7 @@ class LLMClientManager:
             logger.error("embedding_failed", error=str(e), text_len=len(text))
             return []
 
-    def get_batch_embeddings(self, texts: List[str]) -> List[List[float]]:
+    def get_batch_embeddings(self, texts: list[str]) -> list[list[float]]:
         """
         Generate embeddings for multiple texts in a single batch call.
 
@@ -90,7 +89,7 @@ class LLMClientManager:
         if not texts:
             return []
 
-        if not self.is_available:
+        if not self.is_available or self._client is None:
             return [[] for _ in texts]
 
         try:
@@ -119,7 +118,7 @@ class LLMClientManager:
         self,
         text: str,
         system_instruction: str = "",
-        model: Optional[str] = None,
+        model: str | None = None,
     ) -> str:
         """
         Generate an abstractive summary using primary model with fallback.
@@ -159,6 +158,8 @@ class LLMClientManager:
         self, text: str, system_instruction: str, model: str
     ) -> str:
         """Execute a single generate_content call."""
+        if self._client is None:
+            return ""
         try:
             response = self._client.models.generate_content(
                 model=model,

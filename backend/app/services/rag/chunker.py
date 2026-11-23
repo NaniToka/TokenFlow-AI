@@ -5,9 +5,8 @@ Splits long conversational texts, documents, and code snippets into semantically
 coherent chunks while preserving paragraph, sentence, and word boundaries.
 """
 
-import re
-from typing import List, Dict, Any
 from dataclasses import dataclass
+from typing import Any
 
 
 @dataclass
@@ -18,7 +17,7 @@ class TextChunk:
     token_count: int
     start_char: int
     end_char: int
-    metadata: Dict[str, Any]
+    metadata: dict[str, Any]
 
 
 class SemanticChunker:
@@ -37,16 +36,16 @@ class SemanticChunker:
         self.chunk_size = chunk_size
         self.chunk_overlap = chunk_overlap
 
-    def split_text(self, text: str, metadata: Dict[str, Any] = None) -> List[TextChunk]:
+    def split_text(self, text: str, metadata: dict[str, Any] | None = None) -> list[TextChunk]:
         """Splits input text into overlapping semantic chunks."""
         if not text or not text.strip():
             return []
 
         metadata = metadata or {}
         raw_chunks = self._recursive_split(text, self.DEFAULT_SEPARATORS)
-        
+
         # Merge small splits up to chunk_size with overlap
-        merged: List[TextChunk] = []
+        merged: list[TextChunk] = []
         current_text = ""
         chunk_idx = 0
         current_start = 0
@@ -67,7 +66,7 @@ class SemanticChunker:
                         )
                     )
                     chunk_idx += 1
-                    
+
                     # Compute overlap
                     overlap_len = min(len(current_text), self.chunk_overlap)
                     overlap_text = current_text[-overlap_len:] if overlap_len > 0 else ""
@@ -90,7 +89,7 @@ class SemanticChunker:
 
         return merged
 
-    def _recursive_split(self, text: str, separators: List[str]) -> List[str]:
+    def _recursive_split(self, text: str, separators: list[str]) -> list[str]:
         """Recursively partitions text along the highest available separator."""
         if not separators or len(text) <= self.chunk_size:
             return [text]

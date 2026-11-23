@@ -6,12 +6,10 @@ the modern multi-strategy compression pipeline.
 """
 
 import logging
-from typing import List
 
 from app.core.dependencies import get_container
 from app.schemas import CompressRequest, CompressResponse, Turn
 from app.services.compression.pipeline import (
-    ContextSummarizer,
     PromptAssembler,
 )
 
@@ -20,7 +18,7 @@ logger = logging.getLogger(__name__)
 
 def assemble_optimized_prompt(
     summary: str,
-    selected_turns: List[Turn],
+    selected_turns: list[Turn],
     current_message: str,
     system_instruction: str = "",
 ) -> str:

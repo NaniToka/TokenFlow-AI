@@ -15,10 +15,10 @@ from starlette.requests import Request
 from starlette.responses import Response
 
 from app.core.logging import (
-    get_logger,
-    set_correlation_id,
     correlation_id_var,
+    get_logger,
     request_meta_var,
+    set_correlation_id,
 )
 
 logger = get_logger(__name__)

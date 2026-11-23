@@ -5,11 +5,11 @@ Caches query embeddings and compression outputs by prompt hash or similarity
 to bypass redundant LLM API calls and achieve sub-millisecond cache hits.
 """
 
-import time
 import hashlib
-from typing import Dict, Any, Optional, List
-from dataclasses import dataclass
+import time
 from collections import OrderedDict
+from dataclasses import dataclass
+from typing import Any
 
 
 @dataclass
@@ -39,7 +39,7 @@ class SemanticCache:
         """Computes a SHA256 hex digest for cache key normalization."""
         return hashlib.sha256(content.strip().encode("utf-8")).hexdigest()
 
-    def get(self, key: str) -> Optional[Any]:
+    def get(self, key: str) -> Any | None:
         """Retrieves value if present and not expired."""
         if key not in self._cache:
             self._misses += 1
@@ -58,7 +58,7 @@ class SemanticCache:
         self._hits += 1
         return entry.value
 
-    def set(self, key: str, value: Any, ttl: Optional[int] = None) -> None:
+    def set(self, key: str, value: Any, ttl: int | None = None) -> None:
         """Stores value with optional custom TTL, evicting oldest item if full."""
         now = time.time()
         ttl_seconds = ttl if ttl is not None else self.default_ttl
@@ -77,7 +77,7 @@ class SemanticCache:
         if len(self._cache) > self.max_size:
             self._cache.popitem(last=False)
 
-    def stats(self) -> Dict[str, Any]:
+    def stats(self) -> dict[str, Any]:
         """Returns cache telemetry."""
         total = self._hits + self._misses
         hit_ratio = round((self._hits / total) * 100.0, 2) if total > 0 else 0.0

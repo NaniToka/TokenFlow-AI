@@ -1,8 +1,9 @@
 import logging
-from typing import List
+
 from google import genai
-from app.schemas import Turn
+
 from app.config import settings
+from app.schemas import Turn
 
 logger = logging.getLogger(__name__)
 
@@ -19,7 +20,7 @@ def _get_client() -> genai.Client | None:
         return None
 
 
-def _local_fallback_summary(unselected_turns: List[Turn]) -> str:
+def _local_fallback_summary(unselected_turns: list[Turn]) -> str:
     """
     Extractive fallback summary when Gemini API key is missing or call fails.
     """
@@ -29,7 +30,7 @@ def _local_fallback_summary(unselected_turns: List[Turn]) -> str:
     user_turns = [t.content.strip() for t in unselected_turns if t.role == "user"]
     if not user_turns:
         user_turns = [t.content.strip() for t in unselected_turns]
-    
+
     if not user_turns:
         return ""
 
@@ -39,11 +40,11 @@ def _local_fallback_summary(unselected_turns: List[Turn]) -> str:
         if len(pt) > 80:
             pt = pt[:77] + "..."
         summary_lines.append(f"• {pt}")
-    
+
     return "Prior context summary:\n" + "\n".join(summary_lines)
 
 
-def summarize_turns(unselected_turns: List[Turn], model: str = "gemini-1.5-flash") -> str:
+def summarize_turns(unselected_turns: list[Turn], model: str = "gemini-1.5-flash") -> str:
     """
     Summarizes unselected/older conversation turns into a compact 2-3 sentence memory summary using Gemini Flash.
     Returns an empty string if unselected_turns is empty.
@@ -70,7 +71,7 @@ def summarize_turns(unselected_turns: List[Turn], model: str = "gemini-1.5-flash
     try:
         response = client.models.generate_content(
             model=model,
-            contents=prompt
+            contents=prompt,
         )
         if response and response.text:
             return response.text.strip()

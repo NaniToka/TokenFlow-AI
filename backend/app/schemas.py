@@ -10,12 +10,10 @@ Provides Pydantic v2 models for:
 
 from __future__ import annotations
 
-from datetime import datetime
 from enum import Enum
-from typing import Any, Dict, List, Literal, Optional
+from typing import Any, Literal
 
 from pydantic import BaseModel, Field, field_validator
-
 
 # --- Core Models ---
 
@@ -46,7 +44,7 @@ class Turn(BaseModel):
 class CompressRequest(BaseModel):
     """Prompt compression request payload."""
 
-    history: List[Turn] = Field(
+    history: list[Turn] = Field(
         default_factory=list,
         max_length=200,
         description="Conversation history (max 200 turns)",
@@ -65,7 +63,7 @@ class CompressRequest(BaseModel):
         default=3, ge=1, le=20,
         description="Number of top-ranked history turns to retain",
     )
-    alpha: Optional[float] = Field(
+    alpha: float | None = Field(
         default=None, ge=0.0, le=1.0,
         description="Semantic vs recency weight (None = auto-tune)",
     )
@@ -74,7 +72,7 @@ class CompressRequest(BaseModel):
 class BatchCompressRequest(BaseModel):
     """Batch compression request for multiple conversations."""
 
-    requests: List[CompressRequest] = Field(
+    requests: list[CompressRequest] = Field(
         ..., min_length=1, max_length=10,
         description="List of compression requests (max 10 per batch)",
     )
@@ -105,7 +103,7 @@ class CompressionMetadata(BaseModel):
         default="fallback_extractive",
         description="LLM model used for summarization",
     )
-    scores: List[Dict[str, Any]] = Field(
+    scores: list[dict[str, Any]] = Field(
         default_factory=list,
         description="Per-turn scoring breakdown",
     )
@@ -115,7 +113,7 @@ class CompressResponse(BaseModel):
     """Full compression response with metrics."""
 
     summary: str = Field(description="Background context summary of evicted turns")
-    selected_turns: List[Turn] = Field(description="Top-K retained turns")
+    selected_turns: list[Turn] = Field(description="Top-K retained turns")
     final_prompt: str = Field(description="Assembled optimized prompt")
     original_tokens: int = Field(description="Token count before compression")
     compressed_tokens: int = Field(description="Token count after compression")
@@ -133,7 +131,7 @@ class CompressResponse(BaseModel):
 class BatchCompressResponse(BaseModel):
     """Batch compression response."""
 
-    results: List[CompressResponse]
+    results: list[CompressResponse]
     total_tokens_saved: int
     total_cost_saved_usd: float
 
@@ -155,9 +153,9 @@ class ErrorCode(str, Enum):
 class ErrorDetail(BaseModel):
     """Structured error detail."""
 
-    field: Optional[str] = None
+    field: str | None = None
     message: str
-    value: Optional[Any] = None
+    value: Any | None = None
 
 
 class ErrorResponse(BaseModel):
@@ -165,8 +163,8 @@ class ErrorResponse(BaseModel):
 
     error: ErrorCode
     message: str
-    details: List[ErrorDetail] = Field(default_factory=list)
-    correlation_id: Optional[str] = None
+    details: list[ErrorDetail] = Field(default_factory=list)
+    correlation_id: str | None = None
 
 
 # --- Stats Models ---
@@ -184,7 +182,7 @@ class SessionStats(BaseModel):
     total_cost_saved_usd: float = 0.0
     avg_compression_ratio: float = 0.0
     avg_latency_ms: float = 0.0
-    request_history: List[Dict[str, Any]] = Field(default_factory=list)
+    request_history: list[dict[str, Any]] = Field(default_factory=list)
 
 
 # --- Health Check Models ---
@@ -199,4 +197,4 @@ class HealthStatus(BaseModel):
     environment: str = "development"
     llm_available: bool = False
     uptime_seconds: float = 0.0
-    features: Dict[str, bool] = Field(default_factory=dict)
+    features: dict[str, bool] = Field(default_factory=dict)

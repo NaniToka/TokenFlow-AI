@@ -11,11 +11,11 @@ import sys
 import uuid
 from contextvars import ContextVar
 from datetime import datetime, timezone
-from typing import Any, Dict, Optional
+from typing import Any, ClassVar
 
 # Context variable for request correlation
-correlation_id_var: ContextVar[Optional[str]] = ContextVar("correlation_id", default=None)
-request_meta_var: ContextVar[Dict[str, Any]] = ContextVar("request_meta", default={})
+correlation_id_var: ContextVar[str | None] = ContextVar("correlation_id", default=None)
+request_meta_var: ContextVar[dict[str, Any] | None] = ContextVar("request_meta", default=None)
 
 
 def get_correlation_id() -> str:
@@ -36,7 +36,7 @@ class JSONFormatter(logging.Formatter):
     """Formats log records as single-line JSON objects."""
 
     def format(self, record: logging.LogRecord) -> str:
-        log_entry: Dict[str, Any] = {
+        log_entry: dict[str, Any] = {
             "timestamp": datetime.now(timezone.utc).isoformat(),
             "level": record.levelname,
             "logger": record.name,
@@ -70,7 +70,7 @@ class JSONFormatter(logging.Formatter):
 class ConsoleFormatter(logging.Formatter):
     """Readable colored formatting for local development."""
 
-    COLORS = {
+    COLORS: ClassVar[dict[str, str]] = {
         "DEBUG": "\033[36m",
         "INFO": "\033[32m",
         "WARNING": "\033[33m",
@@ -84,7 +84,6 @@ class ConsoleFormatter(logging.Formatter):
         cid = correlation_id_var.get()
         cid_str = f" [{cid[:8]}]" if cid else ""
         timestamp = datetime.now(timezone.utc).strftime("%H:%M:%S")
-
         msg = f"{color}{timestamp} [{record.levelname:>7}]{self.RESET}{cid_str} {record.name}: {record.getMessage()}"
         if record.exc_info:
             msg += f"\n{self.formatException(record.exc_info)}"
@@ -94,7 +93,7 @@ class ConsoleFormatter(logging.Formatter):
 class StructuredLoggerAdapter:
     """Logger wrapper that formats key-value kwargs without parameter collisions."""
 
-    FORBIDDEN_EXTRA_KEYS = {
+    FORBIDDEN_EXTRA_KEYS: ClassVar[set[str]] = {
         "name", "msg", "args", "levelname", "levelno", "pathname", "filename",
         "module", "exc_info", "exc_text", "stack_info", "lineno", "funcName",
         "created", "msecs", "relativeCreated", "thread", "threadName",

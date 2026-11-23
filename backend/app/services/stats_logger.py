@@ -7,7 +7,7 @@ Persists data strictly in-memory for privacy compliance.
 
 import threading
 from datetime import datetime, timezone
-from typing import Any, Dict, List
+from typing import Any
 
 from app.schemas import CompressResponse
 
@@ -35,7 +35,7 @@ class StatsTracker:
             self.total_cost_after_usd: float = 0.0
             self.total_cost_saved_usd: float = 0.0
             self.total_latency_ms: float = 0.0
-            self.request_history: List[Dict[str, Any]] = []
+            self.request_history: list[dict[str, Any]] = []
 
     def log_compression(
         self, response: CompressResponse, latency_ms: float = 0.0
@@ -72,7 +72,7 @@ class StatsTracker:
             }
             self.request_history.append(log_entry)
 
-    def get_stats(self) -> Dict[str, Any]:
+    def get_stats(self) -> dict[str, Any]:
         """Return current session statistics."""
         with self._lock:
             if self.total_original_tokens > 0:

@@ -7,7 +7,7 @@ when network is unreachable or tiktoken is unavailable.
 """
 
 import re
-from typing import Any, Dict
+from typing import Any
 
 _TIKTOKEN_ENCODING = None
 _TIKTOKEN_INITIALIZED = False
@@ -71,7 +71,7 @@ def calculate_gemini_cost(tokens: int, is_input: bool = True, model: str = "gemi
     return round(cost, 8)
 
 
-def calculate_savings(original_tokens: int, compressed_tokens: int) -> Dict[str, Any]:
+def calculate_savings(original_tokens: int, compressed_tokens: int) -> dict[str, Any]:
     """Calculates token reduction and cost savings metrics."""
     tokens_saved = max(0, original_tokens - compressed_tokens)
 

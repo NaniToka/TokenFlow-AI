@@ -9,9 +9,9 @@ Computes benchmark evaluation metrics for compressed prompts:
 """
 
 import re
-from typing import List, Dict, Any
 from dataclasses import dataclass
-from app.schemas import Turn, CompressResponse
+
+from app.schemas import CompressResponse, Turn
 
 
 @dataclass
@@ -36,7 +36,7 @@ class ContextQualityEvaluator:
 
     KEYWORD_PATTERN = re.compile(r"\b[A-Za-z0-9_]{3,}\b")
 
-    def evaluate(self, original_history: List[Turn], response: CompressResponse) -> QualityBenchmarkReport:
+    def evaluate(self, original_history: list[Turn], response: CompressResponse) -> QualityBenchmarkReport:
         """Generates comprehensive quality score across factual retention and efficiency."""
         # 1. Extract vocabulary & entities from original user/model turns
         orig_text = " ".join([t.content for t in original_history])

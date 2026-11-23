@@ -3,47 +3,52 @@ TokenFlow AI - Production API Server
 Intelligent Context Management & Prompt Memory Optimization Platform.
 """
 
-import os
 import json
+import os
 import time
-import logging
-from typing import Any, Dict
 
-from fastapi import FastAPI, Request, HTTPException, WebSocket, WebSocketDisconnect, Depends
-from fastapi.middleware.cors import CORSMiddleware
-from fastapi.staticfiles import StaticFiles
-from fastapi.responses import FileResponse, JSONResponse, PlainTextResponse
-from app.utils.metrics import metrics_registry
+from fastapi import (
+    Depends,
+    FastAPI,
+    HTTPException,
+    Request,
+    WebSocket,
+    WebSocketDisconnect,
+)
 from fastapi.exceptions import RequestValidationError
+from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import FileResponse, JSONResponse, PlainTextResponse
+from fastapi.staticfiles import StaticFiles
 from slowapi import Limiter, _rate_limit_exceeded_handler
-from slowapi.util import get_remote_address
 from slowapi.errors import RateLimitExceeded
+from slowapi.util import get_remote_address
 
 from app.core.config import settings
-from app.core.lifecycle import lifespan
-from app.core.logging import get_logger, get_correlation_id
-from app.core.middleware import (
-    CorrelationMiddleware,
-    TimingMiddleware,
-    SecurityHeadersMiddleware,
-)
 from app.core.dependencies import (
-    get_container,
     get_compression_pipeline,
+    get_container,
     get_stats_tracker,
 )
+from app.core.lifecycle import lifespan
+from app.core.logging import get_correlation_id, get_logger
+from app.core.middleware import (
+    CorrelationMiddleware,
+    SecurityHeadersMiddleware,
+    TimingMiddleware,
+)
 from app.schemas import (
-    CompressRequest,
-    CompressResponse,
     BatchCompressRequest,
     BatchCompressResponse,
-    HealthStatus,
-    ErrorResponse,
+    CompressRequest,
+    CompressResponse,
     ErrorCode,
     ErrorDetail,
+    ErrorResponse,
+    HealthStatus,
 )
 from app.services.compression.pipeline import CompressionPipeline
 from app.services.stats_logger import StatsTracker
+from app.utils.metrics import metrics_registry
 
 logger = get_logger(__name__)
 
@@ -163,7 +168,7 @@ def compress_prompt(
         raise HTTPException(
             status_code=500,
             detail="An internal server error occurred while compressing the prompt.",
-        )
+        ) from e
 
 
 @app.post("/api/v1/compress/batch", tags=["Compression"], response_model=BatchCompressResponse)
@@ -266,7 +271,8 @@ for candidate in possible_dist_dirs:
         break
 
 if frontend_dist and os.path.exists(frontend_dist):
-    assets_dir = os.path.join(frontend_dist, "assets")
+    dist_root: str = str(frontend_dist)
+    assets_dir = os.path.join(dist_root, "assets")
     if os.path.exists(assets_dir):
         app.mount("/assets", StaticFiles(directory=assets_dir), name="assets")
 
@@ -275,11 +281,11 @@ if frontend_dist and os.path.exists(frontend_dist):
         if full_path.startswith("api/") or full_path.startswith("docs") or full_path.startswith("redoc") or full_path.startswith("openapi.json") or full_path == "metrics":
             raise HTTPException(status_code=404, detail="API route not found")
 
-        file_path = os.path.join(frontend_dist, full_path)
+        file_path = os.path.join(dist_root, full_path)
         if full_path and os.path.exists(file_path) and os.path.isfile(file_path):
             return FileResponse(file_path)
 
-        index_html = os.path.join(frontend_dist, "index.html")
+        index_html = os.path.join(dist_root, "index.html")
         if os.path.exists(index_html):
             return FileResponse(index_html)
 

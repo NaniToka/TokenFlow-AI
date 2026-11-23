@@ -5,7 +5,7 @@ Exports compression results and session logs to Markdown, JSON, or CSV for repor
 """
 
 import json
-from typing import Dict, Any, List
+
 from app.schemas import CompressResponse
 
 

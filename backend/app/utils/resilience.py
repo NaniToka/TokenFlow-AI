@@ -3,10 +3,11 @@ Resilience utilities for external API integrations.
 Provides exponential backoff with full jitter to avoid thundering herd problems.
 """
 
-import time
-import random
 import logging
-from typing import Callable, Any, Type, Tuple
+import random
+import time
+from collections.abc import Callable
+from typing import Any
 
 logger = logging.getLogger(__name__)
 
@@ -15,7 +16,7 @@ def retry_with_backoff(
     max_retries: int = 3,
     initial_delay: float = 0.5,
     backoff_factor: float = 2.0,
-    retryable_exceptions: Tuple[Type[Exception], ...] = (Exception,),
+    retryable_exceptions: tuple[type[Exception], ...] = (Exception,),
 ) -> Callable:
     """
     Decorator that retries a synchronous function using exponential backoff with jitter.

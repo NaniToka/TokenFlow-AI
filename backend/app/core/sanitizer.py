@@ -5,14 +5,14 @@ Sanitizes prompt inputs, strips dangerous script injections, and enforces strict
 """
 
 import re
-import html
 import unicodedata
+from typing import ClassVar
 
 
 class InputSanitizer:
     """Sanitizes text inputs to protect downstream LLMs and web UIs."""
 
-    INJECTION_PATTERNS = [
+    INJECTION_PATTERNS: ClassVar[list[re.Pattern[str]]] = [
         re.compile(r"<script.*?>.*?</script>", re.IGNORECASE | re.DOTALL),
         re.compile(r"javascript:", re.IGNORECASE),
         re.compile(r"onload\s*=", re.IGNORECASE),

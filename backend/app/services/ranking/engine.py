@@ -15,7 +15,7 @@ import math
 import re
 from collections import Counter
 from dataclasses import dataclass, field
-from typing import Any, Dict, List, Optional
+from typing import Any
 
 import numpy as np
 
@@ -26,7 +26,7 @@ from app.schemas import Turn
 logger = get_logger(__name__)
 
 
-def cosine_similarity(a: List[float], b: List[float]) -> float:
+def cosine_similarity(a: list[float], b: list[float]) -> float:
     """Compute cosine similarity between two float vectors using numpy."""
     if not a or not b:
         return 0.0
@@ -52,7 +52,7 @@ class ScoredTurn:
     final_score: float = 0.0
     selected: bool = False
 
-    def to_metadata(self) -> Dict[str, Any]:
+    def to_metadata(self) -> dict[str, Any]:
         """Export scores as API-friendly metadata dict."""
         content = self.turn.content
         snippet = content[:60] + ("..." if len(content) > 60 else "")
@@ -73,9 +73,9 @@ class ScoredTurn:
 class RankingResult:
     """Complete result from the ranking engine."""
 
-    selected_turns: List[Turn] = field(default_factory=list)
-    unselected_turns: List[Turn] = field(default_factory=list)
-    scores: List[Dict[str, Any]] = field(default_factory=list)
+    selected_turns: list[Turn] = field(default_factory=list)
+    unselected_turns: list[Turn] = field(default_factory=list)
+    scores: list[dict[str, Any]] = field(default_factory=list)
     alpha_used: float = 0.7
     drift_detected: bool = False
     ranking_strategy: str = "hybrid"
@@ -93,7 +93,7 @@ class BM25Scorer:
         self.k1 = k1
         self.b = b
 
-    def score(self, query: str, documents: List[str]) -> List[float]:
+    def score(self, query: str, documents: list[str]) -> list[float]:
         """
         Compute BM25 scores for a query against a corpus of documents.
 
@@ -115,7 +115,7 @@ class BM25Scorer:
         n_docs = len(documents)
 
         # Compute IDF for query terms
-        idf_scores: Dict[str, float] = {}
+        idf_scores: dict[str, float] = {}
         for term in query_terms:
             df = sum(1 for dtf in doc_term_freqs if term in dtf)
             idf_scores[term] = math.log(
@@ -145,7 +145,7 @@ class BM25Scorer:
         return scores
 
     @staticmethod
-    def _tokenize(text: str) -> List[str]:
+    def _tokenize(text: str) -> list[str]:
         """Simple whitespace + lowercase tokenization."""
         return re.findall(r"\w+", text.lower())
 
@@ -162,7 +162,7 @@ class DriftDetector:
         self.window_size = window_size
         self.threshold = threshold
 
-    def detect_drift_points(self, turns: List[Turn]) -> List[float]:
+    def detect_drift_points(self, turns: list[Turn]) -> list[float]:
         """
         Compute drift penalty for each turn.
 
@@ -213,8 +213,8 @@ class AdaptiveAlpha:
 
     @staticmethod
     def compute(
-        turns: List[Turn],
-        drift_penalties: List[float],
+        turns: list[Turn],
+        drift_penalties: list[float],
         base_alpha: float = 0.7,
     ) -> float:
         """
@@ -228,7 +228,6 @@ class AdaptiveAlpha:
             return 0.4  # Favor recency for short conversations
 
         # Measure topic consistency
-        avg_drift = sum(drift_penalties) / len(drift_penalties) if drift_penalties else 0.0
         drift_count = sum(1 for d in drift_penalties if d > 0.3)
         drift_ratio = drift_count / n
 
@@ -277,10 +276,10 @@ class RankingEngine:
 
     def rank_turns(
         self,
-        history: List[Turn],
+        history: list[Turn],
         current_message: str,
         top_k: int = 3,
-        alpha: Optional[float] = None,
+        alpha: float | None = None,
     ) -> RankingResult:
         """
         Rank conversation history using multi-strategy scoring.
@@ -392,8 +391,8 @@ class RankingEngine:
         )
 
     def _compute_semantic_scores(
-        self, query: str, texts: List[str]
-    ) -> List[float]:
+        self, query: str, texts: list[str]
+    ) -> list[float]:
         """Compute semantic similarity scores using embeddings or fallback."""
         if not self._llm_client or not self._llm_client.is_available:
             return self._lexical_fallback(query, texts)
@@ -413,7 +412,7 @@ class RankingEngine:
         return scores
 
     @staticmethod
-    def _cosine_similarity(a: List[float], b: List[float]) -> float:
+    def _cosine_similarity(a: list[float], b: list[float]) -> float:
         """Compute cosine similarity between two vectors."""
         if not a or not b:
             return 0.0
@@ -434,7 +433,7 @@ class RankingEngine:
             return 0.0
         return len(w1 & w2) / len(w1 | w2)
 
-    def _lexical_fallback(self, query: str, texts: List[str]) -> List[float]:
+    def _lexical_fallback(self, query: str, texts: list[str]) -> list[float]:
         """Fallback to Jaccard similarity when embeddings unavailable."""
         return [self._jaccard_similarity(query, t) for t in texts]
 

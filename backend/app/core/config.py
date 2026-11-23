@@ -5,9 +5,7 @@ Supports: development, staging, production environments.
 Loads from .env files with pydantic-settings validation.
 """
 
-import os
 from enum import Enum
-from typing import List, Optional, Union
 from functools import lru_cache
 
 from pydantic import Field, field_validator
@@ -99,7 +97,7 @@ class Settings(BaseSettings):
     HOST: str = "0.0.0.0"
     PORT: int = 8000
     WORKERS: int = 1
-    ALLOWED_ORIGINS: Union[List[str], str] = "http://localhost:3000,http://localhost:5173"
+    ALLOWED_ORIGINS: list[str] | str = "http://localhost:3000,http://localhost:5173"
     RATE_LIMIT_PER_MINUTE: str = "60/minute"
 
     # --- Nested configs ---
@@ -116,7 +114,7 @@ class Settings(BaseSettings):
     )
 
     @property
-    def cors_origins(self) -> List[str]:
+    def cors_origins(self) -> list[str]:
         if isinstance(self.ALLOWED_ORIGINS, str):
             return [o.strip() for o in self.ALLOWED_ORIGINS.split(",") if o.strip()]
         return self.ALLOWED_ORIGINS

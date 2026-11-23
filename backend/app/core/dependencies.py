@@ -7,16 +7,15 @@ configured service instances into route handlers.
 
 from __future__ import annotations
 
-from functools import lru_cache
 from typing import TYPE_CHECKING
 
 from app.core.config import Settings, get_settings
 
 if TYPE_CHECKING:
-    from app.services.ranking.engine import RankingEngine
     from app.services.compression.pipeline import CompressionPipeline
-    from app.services.stats_logger import StatsTracker
     from app.services.llm.client import LLMClientManager
+    from app.services.ranking.engine import RankingEngine
+    from app.services.stats_logger import StatsTracker
 
 
 class ServiceContainer:

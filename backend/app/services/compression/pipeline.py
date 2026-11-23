@@ -13,20 +13,18 @@ Orchestrates the full prompt compression workflow:
 
 from __future__ import annotations
 
-from typing import List, Optional
-
 from app.core.config import Settings
 from app.core.logging import get_logger
 from app.schemas import (
+    CompressionMetadata,
     CompressRequest,
     CompressResponse,
-    CompressionMetadata,
     Turn,
 )
 from app.services.llm.client import LLMClientManager
 from app.services.ranking.engine import RankingEngine
 from app.services.stats_logger import StatsTracker
-from app.utils.token_counter import count_tokens, calculate_savings
+from app.utils.token_counter import calculate_savings, count_tokens
 
 logger = get_logger(__name__)
 
@@ -52,7 +50,7 @@ class ContextSummarizer:
     def __init__(self, llm_client: LLMClientManager):
         self._llm = llm_client
 
-    def summarize(self, turns: List[Turn]) -> str:
+    def summarize(self, turns: list[Turn]) -> str:
         """
         Generate a compact summary of conversation turns.
 
@@ -77,7 +75,7 @@ class ContextSummarizer:
         return self._extractive_fallback(turns)
 
     @staticmethod
-    def _extractive_fallback(turns: List[Turn]) -> str:
+    def _extractive_fallback(turns: list[Turn]) -> str:
         """
         Extractive summary: select key user statements.
 
@@ -111,7 +109,7 @@ class PromptAssembler:
     @staticmethod
     def assemble(
         summary: str,
-        selected_turns: List[Turn],
+        selected_turns: list[Turn],
         current_message: str,
         system_instruction: str = "",
     ) -> str:

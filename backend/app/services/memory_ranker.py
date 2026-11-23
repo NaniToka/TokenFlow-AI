@@ -1,11 +1,13 @@
 import math
+from typing import Any
+
 import numpy as np
-from typing import List, Dict, Any
+
 from app.schemas import Turn
-from app.utils.embeddings import get_embedding, get_batch_embeddings
+from app.utils.embeddings import get_batch_embeddings, get_embedding
 
 
-def cosine_similarity(vec_a: List[float], vec_b: List[float]) -> float:
+def cosine_similarity(vec_a: list[float], vec_b: list[float]) -> float:
     """
     Calculates the cosine similarity between two float vectors using numpy.
     Returns a float between -1.0 and 1.0 (or 0.0 for zero vectors/empty input).
@@ -14,13 +16,13 @@ def cosine_similarity(vec_a: List[float], vec_b: List[float]) -> float:
         return 0.0
     a = np.array(vec_a, dtype=float)
     b = np.array(vec_b, dtype=float)
-    
+
     norm_a = np.linalg.norm(a)
     norm_b = np.linalg.norm(b)
-    
+
     if norm_a == 0.0 or norm_b == 0.0:
         return 0.0
-        
+
     sim = np.dot(a, b) / (norm_a * norm_b)
     return float(np.clip(sim, -1.0, 1.0))
 
@@ -79,11 +81,11 @@ def _lexical_similarity(text1: str, text2: str) -> float:
 
 
 def rank_turns(
-    history: List[Turn],
+    history: list[Turn],
     current_message: str,
     top_k: int = 3,
     alpha: float = 0.7
-) -> Dict[str, Any]:
+) -> dict[str, Any]:
     """
     Ranks conversation history turns using a hybrid score of semantic similarity and recency.
     Operates strictly on isolated local turn data per request.
@@ -106,7 +108,7 @@ def rank_turns(
     scored_items = []
     for i, turn in enumerate(local_history):
         recency_score = compute_recency_weight(i, total_turns)
-        
+
         turn_vec = turn_vecs[i] if i < len(turn_vecs) else []
         sim_score = cosine_similarity(query_vec, turn_vec)
 
