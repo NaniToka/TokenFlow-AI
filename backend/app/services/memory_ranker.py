@@ -39,6 +39,32 @@ def compute_recency_weight(index: int, total_turns: int, decay_factor: float = 0
     return float(weight)
 
 
+class AdaptiveDecayTuner:
+    """
+    Computes dynamic half-life and adaptive decay factors based on history depth.
+    Ensures long dialogues do not artificially starve older relevant context.
+    """
+    def __init__(self, base_decay: float = 0.05, min_decay: float = 0.01, max_decay: float = 0.15):
+        self.base_decay = base_decay
+        self.min_decay = min_decay
+        self.max_decay = max_decay
+
+    def calculate_decay_factor(self, total_turns: int) -> float:
+        if total_turns <= 5:
+            return self.max_decay
+        elif total_turns <= 20:
+            return self.base_decay
+        else:
+            adjusted = self.base_decay * (20.0 / total_turns)
+            return max(self.min_decay, min(self.max_decay, adjusted))
+
+    def get_half_life_turns(self, decay_factor: float) -> float:
+        if decay_factor <= 0.0:
+            return float('inf')
+        return math.log(2) / decay_factor
+
+
+
 def _lexical_similarity(text1: str, text2: str) -> float:
     """
     Fallback Jaccard lexical similarity when vector embeddings are empty/unavailable.

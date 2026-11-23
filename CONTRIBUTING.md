@@ -1,34 +1,93 @@
-# Contributing to TokenFlow AI
+# Contributing to TokenFlow-AI
 
-First off, thank you for considering contributing to TokenFlow AI! We welcome community contributions.
+Thank you for your interest in contributing to **TokenFlow-AI**! We welcome bug reports, documentation improvements, algorithmic optimizations, and feature pull requests.
 
-## How Can I Contribute?
+---
 
-### Reporting Bugs
-- Ensure the bug was not already reported by searching on GitHub under [Issues].
-- If you're unable to find an open issue addressing the problem, open a new one. Be sure to include a title and clear description, as much relevant information as possible, and a code sample or an executable test case demonstrating the expected behavior that is not occurring.
+## 1. Development Environment Setup
 
-### Suggesting Enhancements
-- Open a new issue with a clear title and description.
-- Explain why this enhancement would be useful to most users.
+### Prerequisites
+- Python 3.10, 3.11, or 3.12
+- `git`
+- (Optional) Docker for containerized testing
 
-### Pull Requests
-1. Fork the repo and create your branch from `main`.
-2. If you've added code that should be tested, add tests.
-3. If you've changed APIs, update the documentation.
-4. Ensure the test suite passes (run `pytest`).
-5. Make sure your code lints.
-6. Issue that pull request!
+### Initial Setup
+```bash
+# Clone repository
+git clone https://github.com/NaniToka/TokenFlow-AI.git
+cd TokenFlow-AI
 
-## Local Development Setup
+# Create and activate a virtual environment
+python3 -m venv .venv
+source .venv/bin/activate
 
-1. Clone the repository.
-2. Install Python dependencies: `cd backend && pip install -r requirements.txt`.
-3. Set up the environment: `cp backend/.env.example backend/.env`.
-4. Run the API: `uvicorn app.main:app --reload`.
+# Install dependencies (runtime + testing)
+pip install -r backend/requirements.txt
+pip install pytest pytest-asyncio httpx ruff black
+```
 
-## Styleguides
-### Git Commit Messages
-* Use the present tense ("Add feature" not "Added feature").
-* Limit the first line to 72 characters or less.
-* Reference issues and pull requests liberally after the first line.
+---
+
+## 2. Running Tests & Benchmarks
+
+Before submitting any code, verify that all tests pass:
+
+```bash
+# Run full unit and integration test suite
+pytest backend/tests/ -v
+
+# Run performance and latency benchmarks
+python benchmarks/benchmark_suite.py
+```
+
+All new features and bug fixes MUST include corresponding unit tests in `backend/tests/`.
+
+---
+
+## 3. Code Style & Standards
+
+We enforce modern, clean Python conventions:
+- **Type Annotations**: Use Python type hints on all public functions and methods (`from typing import List, Dict, Optional`).
+- **Formatting**: Format code with `black` (88 character line limit).
+- **Linting**: Clean linting with `ruff check backend/`.
+- **Validation**: Use Pydantic v2 models for all API request and response data structures.
+
+---
+
+## 4. Conventional Commit Guidelines
+
+We follow the [Conventional Commits](https://www.conventionalcommits.org/) specification to keep the changelog structured and reproducible:
+
+```
+<type>(<scope>): <short description>
+```
+
+### Types:
+- `feat`: A new feature or algorithm improvement.
+- `fix`: A bug fix.
+- `test`: Adding or updating test suites.
+- `docs`: Documentation updates or additions.
+- `perf`: A code change that improves performance or latency.
+- `ci`: GitHub Actions or CI configuration changes.
+- `refactor`: Code restructuring without behavioral changes.
+
+### Examples:
+- `feat(compressor): add configurable exponential recency decay tuner`
+- `test(api): add payload validation edge case unit tests`
+- `docs(api): add comprehensive API specification and schema documentation`
+
+---
+
+## 5. Pull Request Workflow
+
+1. **Create a branch**: Branch off `main` with a descriptive name:
+   ```bash
+   git checkout -b feat/your-feature-name
+   ```
+2. **Implement changes**: Keep commits modular and self-contained.
+3. **Verify tests**: Run `pytest backend/tests/ -v`.
+4. **Push branch**:
+   ```bash
+   git push origin feat/your-feature-name
+   ```
+5. **Open Pull Request**: Describe your change, motivation, and link any related issues.
