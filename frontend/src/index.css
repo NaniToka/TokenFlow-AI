@@ -1,47 +1,390 @@
 @import "tailwindcss";
 
+/* ==========================================================================
+   TokenFlow AI v2.0 — Adaptive Light/Dark Research Workstation Design System
+   Follows modern-web-guidance: color-scheme, light-dark(), container queries,
+   native <dialog> top-layer containment, and WCAG AAA/AA accessibility.
+   ========================================================================== */
+
+:root {
+  /* Semantic Surface & Ink Tokens (Fallback defaults = Light) */
+  --surface-canvas-light: #f8fafc;
+  --surface-canvas-dark: #06080c;
+  --surface-panel-light: rgba(255, 255, 255, 0.92);
+  --surface-panel-dark: rgba(14, 17, 23, 0.82);
+  --surface-elevated-light: #ffffff;
+  --surface-elevated-dark: #0f131a;
+  --surface-subtle-light: #f1f5f9;
+  --surface-subtle-dark: #161b24;
+
+  --text-primary-light: #0f172a;
+  --text-primary-dark: #f1f5f9;
+  --text-secondary-light: #475569;
+  --text-secondary-dark: #94a3b8;
+  --text-muted-light: #64748b;
+  --text-muted-dark: #64748b;
+
+  --border-subtle-light: rgba(15, 23, 42, 0.09);
+  --border-subtle-dark: rgba(255, 255, 255, 0.09);
+  --border-strong-light: rgba(15, 23, 42, 0.16);
+  --border-strong-dark: rgba(255, 255, 255, 0.18);
+
+  --accent-emerald-light: #059669;
+  --accent-emerald-dark: #10b981;
+  --accent-cyan-light: #0284c7;
+  --accent-cyan-dark: #06b6d4;
+  --accent-violet-light: #7c3aed;
+  --accent-violet-dark: #a78bfa;
+
+  --scrollbar-thumb-light: #94a3b8;
+  --scrollbar-thumb-dark: #475569;
+  --scrollbar-track-light: #e2e8f0;
+  --scrollbar-track-dark: #0f131a;
+
+  /* Resolved tokens with @media fallback before @supports light-dark() */
+  --surface-canvas: var(--surface-canvas-light);
+  --surface-panel: var(--surface-panel-light);
+  --surface-elevated: var(--surface-elevated-light);
+  --surface-subtle: var(--surface-subtle-light);
+  --text-primary: var(--text-primary-light);
+  --text-secondary: var(--text-secondary-light);
+  --text-muted: var(--text-muted-light);
+  --border-subtle: var(--border-subtle-light);
+  --border-strong: var(--border-strong-light);
+  --accent-primary: var(--accent-emerald-light);
+  --accent-secondary: var(--accent-cyan-light);
+  --accent-tertiary: var(--accent-violet-light);
+  --scrollbar-thumb: var(--scrollbar-thumb-light);
+  --scrollbar-track: var(--scrollbar-track-light);
+
+  @media (prefers-color-scheme: dark) {
+    --surface-canvas: var(--surface-canvas-dark);
+    --surface-panel: var(--surface-panel-dark);
+    --surface-elevated: var(--surface-elevated-dark);
+    --surface-subtle: var(--surface-subtle-dark);
+    --text-primary: var(--text-primary-dark);
+    --text-secondary: var(--text-secondary-dark);
+    --text-muted: var(--text-muted-dark);
+    --border-subtle: var(--border-subtle-dark);
+    --border-strong: var(--border-strong-dark);
+    --accent-primary: var(--accent-emerald-dark);
+    --accent-secondary: var(--accent-cyan-dark);
+    --accent-tertiary: var(--accent-violet-dark);
+    --scrollbar-thumb: var(--scrollbar-thumb-dark);
+    --scrollbar-track: var(--scrollbar-track-dark);
+  }
+
+  @supports (color: light-dark(white, black)) {
+    --surface-canvas: light-dark(var(--surface-canvas-light), var(--surface-canvas-dark));
+    --surface-panel: light-dark(var(--surface-panel-light), var(--surface-panel-dark));
+    --surface-elevated: light-dark(var(--surface-elevated-light), var(--surface-elevated-dark));
+    --surface-subtle: light-dark(var(--surface-subtle-light), var(--surface-subtle-dark));
+    --text-primary: light-dark(var(--text-primary-light), var(--text-primary-dark));
+    --text-secondary: light-dark(var(--text-secondary-light), var(--text-secondary-dark));
+    --text-muted: light-dark(var(--text-muted-light), var(--text-muted-dark));
+    --border-subtle: light-dark(var(--border-subtle-light), var(--border-subtle-dark));
+    --border-strong: light-dark(var(--border-strong-light), var(--border-strong-dark));
+    --accent-primary: light-dark(var(--accent-emerald-light), var(--accent-emerald-dark));
+    --accent-secondary: light-dark(var(--accent-cyan-light), var(--accent-cyan-dark));
+    --accent-tertiary: light-dark(var(--accent-violet-light), var(--accent-violet-dark));
+    --scrollbar-thumb: light-dark(var(--scrollbar-thumb-light), var(--scrollbar-thumb-dark));
+    --scrollbar-track: light-dark(var(--scrollbar-track-light), var(--scrollbar-track-dark));
+  }
+
+  /* MANDATORY: Keep base color-scheme light dark; reflect meta override */
+  color-scheme: light dark;
+  &:has(> head > meta[name="color-scheme"][content="dark"]) {
+    color-scheme: dark;
+  }
+  &:has(> head > meta[name="color-scheme"][content="light"]) {
+    color-scheme: light;
+  }
+
+  accent-color: var(--accent-primary);
+  scrollbar-color: var(--scrollbar-thumb) var(--scrollbar-track);
+}
+
 @layer base {
   body {
-    @apply bg-zinc-950 text-zinc-100 font-sans antialiased selection:bg-emerald-500/30 selection:text-emerald-200 min-h-screen overflow-x-hidden;
+    background-color: var(--surface-canvas);
+    color: var(--text-primary);
+    min-block-size: 100dvh;
+    overflow-x: hidden;
+    font-family: ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+    -webkit-font-smoothing: antialiased;
+  }
+
+  ::selection {
+    background-color: color-mix(in srgb, var(--accent-primary) 28%, transparent);
+    color: var(--text-primary);
+  }
+
+  :where(a:any-link, button, input, select, textarea, [tabindex]):focus-visible {
+    outline: 2px solid var(--accent-primary);
+    outline-offset: 2px;
   }
 }
 
-.glass-panel {
-  @apply bg-zinc-900/70 backdrop-blur-xl border border-white/10 shadow-xl shadow-black/40;
+/* Precision engineering grid background */
+.workstation-grid-bg {
+  background-image:
+    linear-gradient(to right, var(--border-subtle) 1px, transparent 1px),
+    linear-gradient(to bottom, var(--border-subtle) 1px, transparent 1px);
+  background-size: 36px 36px;
 }
 
-.glass-card {
-  @apply bg-zinc-900/60 backdrop-blur-lg border border-white/10 hover:border-white/20 transition-all duration-300 shadow-lg shadow-black/30;
+.tf-panel {
+  background-color: var(--surface-panel);
+  backdrop-filter: blur(16px);
+  border: 1px solid var(--border-subtle);
 }
 
-.glass-input {
-  @apply bg-zinc-950/80 border border-zinc-800 focus:border-emerald-500/60 focus:ring-2 focus:ring-emerald-500/20 text-zinc-100 placeholder-zinc-500 rounded-lg outline-none transition-all;
+.tf-card {
+  background-color: var(--surface-elevated);
+  border: 1px solid var(--border-subtle);
+  box-shadow: 0 4px 24px -8px rgba(0, 0, 0, 0.14);
+  transition: border-color 0.2s ease, box-shadow 0.2s ease;
 }
 
-.glow-emerald {
-  box-shadow: 0 0 25px -5px rgba(16, 185, 129, 0.15);
+.tf-card:hover {
+  border-color: var(--border-strong);
 }
 
-.glow-cyan {
-  box-shadow: 0 0 25px -5px rgba(6, 182, 212, 0.15);
+.tf-subsurface {
+  background-color: var(--surface-subtle);
+  border: 1px solid var(--border-subtle);
 }
 
-.glow-violet {
-  box-shadow: 0 0 25px -5px rgba(139, 92, 246, 0.15);
+.tf-input {
+  background-color: var(--surface-subtle);
+  border: 1px solid var(--border-strong);
+  color: var(--text-primary);
+  border-radius: 0.625rem;
+  transition: border-color 0.15s ease, box-shadow 0.15s ease;
 }
 
-/* Custom Scrollbar */
-::-webkit-scrollbar {
-  width: 6px;
-  height: 6px;
+.tf-input::placeholder {
+  color: var(--text-muted);
 }
-::-webkit-scrollbar-track {
-  background: #09090b;
+
+.tf-input:focus {
+  border-color: var(--accent-primary);
+  outline: none;
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--accent-primary) 18%, transparent);
 }
-::-webkit-scrollbar-thumb {
-  background: #27272a;
-  border-radius: 3px;
+
+.tf-text-primary { color: var(--text-primary); }
+.tf-text-secondary { color: var(--text-secondary); }
+.tf-text-muted { color: var(--text-muted); }
+
+/* Minimum 24px accessible target size for controls */
+.tf-btn-target {
+  min-block-size: 32px;
+  min-inline-size: 32px;
 }
-::-webkit-scrollbar-thumb:hover {
-  background: #3f3f46;
+
+/* Visually hidden accessibility utility (skip links, live status) */
+.visually-hidden:where(:not(:focus-within, :active)) {
+  position: absolute !important;
+  clip-path: inset(50%) !important;
+  overflow: hidden !important;
+  width: 1px !important;
+  height: 1px !important;
+  margin: -1px !important;
+  padding: 0 !important;
+  border: 0 !important;
+  white-space: nowrap !important;
+}
+
+.skip-link:focus {
+  position: fixed;
+  top: 0.75rem;
+  left: 0.75rem;
+  z-index: 100;
+  padding: 0.5rem 1rem;
+  border-radius: 0.5rem;
+  background-color: var(--accent-primary);
+  color: #ffffff;
+  font-weight: 700;
+  font-size: 0.875rem;
+  box-shadow: 0 10px 25px rgba(0, 0, 0, 0.35);
+}
+
+/* Native <dialog> top-layer scroll containment & backdrop */
+dialog.tf-dialog {
+  background-color: var(--surface-elevated);
+  color: var(--text-primary);
+  border: 1px solid var(--border-strong);
+  border-radius: 1rem;
+  padding: 0;
+  max-inline-size: min(92vw, 42rem);
+  inline-size: 100%;
+  margin: auto;
+  box-shadow: 0 25px 60px -12px rgba(0, 0, 0, 0.55);
+}
+
+dialog.tf-dialog:modal {
+  overscroll-behavior: contain;
+}
+
+dialog.tf-dialog::backdrop {
+  overflow: hidden;
+  overscroll-behavior: contain;
+  background-color: rgba(2, 6, 23, 0.65);
+  backdrop-filter: blur(5px);
+}
+
+/* Scrollbar styling with legacy WebKit fallback */
+.tf-scroller {
+  scrollbar-color: var(--scrollbar-thumb) var(--scrollbar-track);
+  overscroll-behavior: contain;
+}
+
+@supports not (scrollbar-color: auto) {
+  .tf-scroller {
+    scrollbar-width: auto;
+  }
+  .tf-scroller::-webkit-scrollbar {
+    width: 10px;
+    height: 10px;
+  }
+  .tf-scroller::-webkit-scrollbar-track {
+    background: var(--scrollbar-track);
+  }
+  .tf-scroller::-webkit-scrollbar-thumb {
+    background: var(--scrollbar-thumb);
+    border-radius: 5px;
+  }
+}
+
+/* Responsive Container-Query Audit Table */
+.tf-table-wrapper {
+  overflow: auto;
+  max-inline-size: 100%;
+  max-block-size: min(460px, 68vh);
+  container-type: inline-size;
+  border: 1px solid var(--border-subtle);
+  border-radius: 0.75rem;
+}
+
+.tf-audit-table {
+  width: 100%;
+  border-collapse: separate;
+  border-spacing: 0;
+  font-size: 0.75rem;
+}
+
+.tf-audit-table thead {
+  position: sticky;
+  inset-block-start: 0;
+  z-index: 2;
+  background-color: var(--surface-subtle);
+}
+
+.tf-audit-table th {
+  text-align: left;
+  font-weight: 700;
+  color: var(--text-secondary);
+  border-bottom: 1px solid var(--border-strong);
+  white-space: nowrap;
+}
+
+.tf-audit-table th:not(:has(> button)) {
+  padding: 0.65rem 0.75rem;
+}
+
+.tf-audit-table th > button {
+  width: 100%;
+  min-block-size: 36px;
+  padding: 0.55rem 0.75rem;
+  display: flex;
+  align-items: center;
+  gap: 0.35rem;
+  font-weight: 700;
+  color: inherit;
+  cursor: pointer;
+  background: transparent;
+  border: none;
+  text-align: left;
+}
+
+.tf-audit-table th > button:hover {
+  color: var(--accent-primary);
+}
+
+.tf-audit-table th[aria-sort] > button {
+  color: var(--accent-primary);
+}
+
+.tf-audit-table td {
+  padding: 0.65rem 0.75rem;
+  border-bottom: 1px solid var(--border-subtle);
+  vertical-align: middle;
+}
+
+.tf-audit-table tbody tr:hover {
+  background-color: color-mix(in srgb, var(--accent-primary) 5%, transparent);
+}
+
+@container (width < 600px) {
+  .tf-audit-table,
+  .tf-audit-table thead,
+  .tf-audit-table tbody,
+  .tf-audit-table tr,
+  .tf-audit-table th,
+  .tf-audit-table td {
+    display: block;
+  }
+
+  .tf-audit-table thead {
+    display: none;
+  }
+
+  .tf-audit-table tr {
+    margin-block-end: 0.75rem;
+    border: 1px solid var(--border-subtle);
+    border-radius: 0.65rem;
+    padding: 0.5rem;
+    background-color: var(--surface-elevated);
+  }
+
+  .tf-audit-table td {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 0.5rem;
+    border-bottom: 1px dashed var(--border-subtle);
+    padding: 0.4rem 0.25rem;
+  }
+
+  .tf-audit-table td:last-child {
+    border-bottom: none;
+  }
+
+  .tf-audit-table td::before {
+    content: attr(data-label);
+    font-weight: 600;
+    color: var(--text-muted);
+    font-size: 0.7rem;
+  }
+}
+
+/* Reduced-motion safe animations */
+@media (prefers-reduced-motion: no-preference) {
+  .tf-spin-slow {
+    animation: tfSpin 6s linear infinite;
+  }
+  .tf-pulse {
+    animation: tfPulse 2s cubic-bezier(0.4, 0, 0.6, 1) infinite;
+  }
+}
+
+@keyframes tfSpin {
+  from { transform: rotate(0deg); }
+  to { transform: rotate(360deg); }
+}
+
+@keyframes tfPulse {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.45; }
 }
