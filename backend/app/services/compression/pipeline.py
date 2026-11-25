@@ -2,28 +2,35 @@
 Production-grade compression pipeline with multi-stage processing.
 
 Orchestrates the full prompt compression workflow:
-1. Input validation and preprocessing
+1. Input validation, XSS sanitization, and optional PII redaction
 2. Short-history bypass detection
-3. Multi-strategy ranking
-4. Abstractive summarization with LLM fallback
+3. Multi-strategy ranking (with compression modes)
+4. Abstractive summarization with Semantic LRU cache & fallback
 5. Prompt assembly with section optimization
-6. Cost and savings calculation
-7. Metrics logging
+6. Multi-model cost and savings calculation
+7. Metrics & Prometheus telemetry logging
 """
 
 from __future__ import annotations
 
+import time
+from typing import Any
+
 from app.core.config import Settings
 from app.core.logging import get_logger
+from app.core.sanitizer import InputSanitizer
 from app.schemas import (
     CompressionMetadata,
     CompressRequest,
     CompressResponse,
+    RedactionReport,
     Turn,
 )
+from app.services.cache.semantic_cache import summary_cache
 from app.services.llm.client import LLMClientManager
 from app.services.ranking.engine import RankingEngine
 from app.services.stats_logger import StatsTracker
+from app.utils.metrics import metrics_registry
 from app.utils.token_counter import calculate_savings, count_tokens
 
 logger = get_logger(__name__)
@@ -33,8 +40,8 @@ class ContextSummarizer:
     """
     Generates compact summaries of evicted conversation turns.
 
-    Uses LLM for abstractive summarization with extractive fallback
-    when API is unavailable.
+    Uses LLM for abstractive summarization with Semantic LRU Caching
+    and extractive fallback when API is unavailable.
     """
 
     SUMMARIZATION_PROMPT = (
@@ -50,37 +57,42 @@ class ContextSummarizer:
     def __init__(self, llm_client: LLMClientManager):
         self._llm = llm_client
 
-    def summarize(self, turns: list[Turn]) -> str:
+    def summarize(self, turns: list[Turn], use_cache: bool = True) -> tuple[str, bool]:
         """
         Generate a compact summary of conversation turns.
 
-        Attempts LLM-based abstractive summarization first,
-        falls back to extractive method if unavailable.
+        Returns:
+            Tuple of (summary_text, cache_hit_bool).
         """
         if not turns:
-            return ""
+            return "", False
 
         formatted = "\n".join(
             f"[{t.role.capitalize()}]: {t.content}" for t in turns
         )
+        cache_key = summary_cache.hash_key(formatted)
 
-        # Try LLM summarization
+        if use_cache:
+            cached = summary_cache.get(cache_key)
+            if isinstance(cached, str):
+                return cached, True
+
+        summary_text = ""
         if self._llm.is_available:
             prompt = self.SUMMARIZATION_PROMPT.format(history=formatted)
-            result = self._llm.summarize(prompt)
-            if result:
-                return result
+            summary_text = self._llm.summarize(prompt)
 
-        # Extractive fallback
-        return self._extractive_fallback(turns)
+        if not summary_text:
+            summary_text = self._extractive_fallback(turns)
+
+        if use_cache and summary_text:
+            summary_cache.set(cache_key, summary_text)
+
+        return summary_text, False
 
     @staticmethod
     def _extractive_fallback(turns: list[Turn]) -> str:
-        """
-        Extractive summary: select key user statements.
-
-        Prioritizes user turns and truncates long content.
-        """
+        """Extractive summary: select key user statements."""
         user_turns = [t.content.strip() for t in turns if t.role == "user"]
         if not user_turns:
             user_turns = [t.content.strip() for t in turns]
@@ -99,12 +111,7 @@ class ContextSummarizer:
 
 
 class PromptAssembler:
-    """
-    Assembles the final optimized prompt from compressed components.
-
-    Produces a structured prompt with clear section delimiters
-    that any downstream LLM can parse effectively.
-    """
+    """Assembles the final optimized prompt from compressed components."""
 
     @staticmethod
     def assemble(
@@ -113,11 +120,7 @@ class PromptAssembler:
         current_message: str,
         system_instruction: str = "",
     ) -> str:
-        """
-        Build the final compressed prompt.
-
-        Sections are included only if non-empty to minimize token overhead.
-        """
+        """Build the final compressed prompt with zero unnecessary overhead."""
         sections = []
 
         if system_instruction and system_instruction.strip():
@@ -138,12 +141,7 @@ class PromptAssembler:
 
 
 class CompressionPipeline:
-    """
-    Main orchestrator for the prompt compression workflow.
-
-    Manages the complete pipeline from raw input to optimized output
-    with comprehensive metrics collection.
-    """
+    """Main orchestrator for the prompt compression workflow."""
 
     def __init__(
         self,
@@ -159,31 +157,38 @@ class CompressionPipeline:
         self._settings = settings
 
     def compress(self, request: CompressRequest) -> CompressResponse:
-        """
-        Execute the full compression pipeline.
+        """Execute the full multi-stage compression pipeline."""
+        start_time = time.perf_counter()
 
-        Pipeline stages:
-        1. Deep-copy and validate input
-        2. Calculate original token count
-        3. Apply short-history bypass
-        4. Rank turns with multi-strategy engine
-        5. Summarize evicted turns
-        6. Assemble optimized prompt
-        7. Verify compression (fallback to original if expansion)
-        8. Calculate cost savings
-        9. Log metrics
+        # Stage 1: Isolate, sanitize, and optionally redact PII
+        total_redactions = 0
+        total_xss = 0
+        redacted_types: list[str] = []
 
-        Returns:
-            CompressResponse with full metrics and compressed prompt.
-        """
-        # Stage 1: Isolate input (stateless guarantee)
-        history = [Turn(role=t.role, content=t.content) for t in (request.history or [])]
-        current_msg = str(request.current_message).strip()
-        system_instruction = str(request.system_instruction or "").strip()
+        sanitized_history: list[Turn] = []
+        for t in (request.history or []):
+            res = InputSanitizer.sanitize_and_redact(t.content, redact_pii=request.sanitize_pii)
+            total_redactions += res.redactions_count
+            total_xss += res.xss_stripped
+            for rtype in res.redacted_types:
+                if rtype not in redacted_types:
+                    redacted_types.append(rtype)
+            if res.sanitized_text:
+                sanitized_history.append(Turn(role=t.role, content=res.sanitized_text))
+
+        msg_res = InputSanitizer.sanitize_and_redact(request.current_message, redact_pii=request.sanitize_pii)
+        total_redactions += msg_res.redactions_count
+        total_xss += msg_res.xss_stripped
+        for rtype in msg_res.redacted_types:
+            if rtype not in redacted_types:
+                redacted_types.append(rtype)
+
+        current_msg = msg_res.sanitized_text or str(request.current_message).strip()
+        system_instruction = InputSanitizer.sanitize(request.system_instruction)
 
         # Stage 2: Original token count
         history_text = "\n".join(
-            f"[{t.role.capitalize()}]: {t.content}" for t in history
+            f"[{t.role.capitalize()}]: {t.content}" for t in sanitized_history
         )
         full_original = (
             f"{history_text}\n[User]: {current_msg}" if history_text
@@ -192,23 +197,26 @@ class CompressionPipeline:
         original_tokens = count_tokens(full_original)
 
         # Stage 3: Short-history bypass
-        total_turns = len(history)
+        total_turns = len(sanitized_history)
         history_tokens = count_tokens(history_text) if history_text else 0
+        cache_hit = False
+        mode_value = request.compression_mode.value
 
         if total_turns <= request.top_k or history_tokens < 50:
             summary = ""
-            selected_turns = history
+            selected_turns = sanitized_history
             ranking_strategy = "bypass"
             alpha_used = 0.0
             drift_detected = False
-            scores_meta = []
+            scores_meta: list[dict[str, Any]] = []
         else:
             # Stage 4: Multi-strategy ranking
             ranking = self._ranker.rank_turns(
-                history=history,
+                history=sanitized_history,
                 current_message=current_msg,
                 top_k=request.top_k,
                 alpha=request.alpha,
+                compression_mode=mode_value,
             )
             selected_turns = ranking.selected_turns
             unselected = ranking.unselected_turns
@@ -218,9 +226,12 @@ class CompressionPipeline:
             scores_meta = ranking.scores
 
             # Stage 5: Summarize evicted turns
-            summary = (
-                self._summarizer.summarize(unselected) if unselected else ""
-            )
+            if unselected:
+                summary, cache_hit = self._summarizer.summarize(
+                    unselected, use_cache=request.use_cache
+                )
+            else:
+                summary = ""
 
         # Stage 6: Assemble final prompt
         final_prompt = self._assembler.assemble(
@@ -241,20 +252,36 @@ class CompressionPipeline:
             final_prompt = full_original
             compressed_tokens = original_tokens
             summary = ""
-            selected_turns = history
+            selected_turns = sanitized_history
 
-        # Stage 8: Calculate savings
-        savings = calculate_savings(original_tokens, compressed_tokens)
+        # Stage 8: Multi-model cost savings calculation
+        savings = calculate_savings(
+            original_tokens,
+            compressed_tokens,
+            model=request.target_model,
+        )
 
-        # Build metadata
+        elapsed_sec = time.perf_counter() - start_time
+        latency_ms = round(elapsed_sec * 1000, 2)
+
         metadata = CompressionMetadata(
             ranking_strategy=ranking_strategy if total_turns > request.top_k else "bypass",
+            compression_mode=mode_value,
+            target_model=request.target_model,
             alpha_used=alpha_used,
             drift_detected=drift_detected,
             turns_evaluated=total_turns,
             turns_selected=len(selected_turns),
             turns_evicted=total_turns - len(selected_turns),
             model_used=self._settings.llm.PRIMARY_MODEL if self._summarizer._llm.is_available else "fallback_extractive",
+            cache_hit=cache_hit,
+            latency_ms=latency_ms,
+            redaction=RedactionReport(
+                enabled=request.sanitize_pii,
+                redactions_count=total_redactions,
+                xss_stripped=total_xss,
+                redacted_types=redacted_types,
+            ),
             scores=scores_meta,
         )
 
@@ -272,8 +299,14 @@ class CompressionPipeline:
             metadata=metadata,
         )
 
-        # Stage 9: Log metrics
-        self._stats.log_compression(response)
+        # Stage 9: Log metrics & Prometheus telemetry
+        self._stats.log_compression(response, latency_ms=latency_ms)
+        metrics_registry.record_request(
+            original_tokens=original_tokens,
+            compressed_tokens=compressed_tokens,
+            duration_seconds=elapsed_sec,
+            success=True,
+        )
 
         logger.info(
             "compression_complete",
@@ -282,6 +315,7 @@ class CompressionPipeline:
             tokens_saved=savings["tokens_saved"],
             ratio=savings["compression_ratio"],
             strategy=metadata.ranking_strategy,
+            cache_hit=cache_hit,
         )
 
         return response
