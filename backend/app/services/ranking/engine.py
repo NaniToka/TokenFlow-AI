@@ -280,6 +280,7 @@ class RankingEngine:
         current_message: str,
         top_k: int = 3,
         alpha: float | None = None,
+        compression_mode: str = "balanced",
     ) -> RankingResult:
         """
         Rank conversation history using multi-strategy scoring.
@@ -289,6 +290,7 @@ class RankingEngine:
             current_message: Current user query.
             top_k: Number of turns to select.
             alpha: Override for semantic vs recency weight (auto if None).
+            compression_mode: Strategy mode ('balanced', 'aggressive', 'code_preserving', 'verbatim_facts').
 
         Returns:
             RankingResult with selected/unselected turns and metadata.
@@ -331,17 +333,30 @@ class RankingEngine:
 
         # --- Step 6: Build scored turns ---
         scored = []
+        mode = str(compression_mode).lower()
+        drift_multiplier = 0.45 if mode == "aggressive" else 0.3
+
         for i, turn in enumerate(history):
             # Combine BM25 and semantic into a unified similarity score
             sim = 0.6 * semantic_scores[i] + 0.4 * bm25_scores[i]
 
+            # Apply mode-specific domain signal boosts
+            mode_boost = 0.0
+            if mode == "code_preserving" and (
+                "```" in turn.content or "error" in turn.content.lower() or "select " in turn.content.lower() or "def " in turn.content.lower()
+            ):
+                mode_boost = 0.20
+            elif mode == "verbatim_facts" and any(ch.isdigit() for ch in turn.content):
+                mode_boost = 0.15
+
             # Apply drift penalty
-            drift_pen = drift_penalties[i] * 0.3 if drift_detected else 0.0
+            drift_pen = drift_penalties[i] * drift_multiplier if drift_detected else 0.0
 
             # Final hybrid score
             final = (
                 effective_alpha * sim
                 + (1.0 - effective_alpha) * recency_scores[i]
+                + mode_boost
                 - drift_pen
             )
 
@@ -357,7 +372,8 @@ class RankingEngine:
 
         # --- Step 7: Select top-k ---
         ranked = sorted(scored, key=lambda x: x.final_score, reverse=True)
-        k = min(top_k, total)
+        effective_k = max(1, top_k - 1) if (mode == "aggressive" and top_k > 1) else top_k
+        k = min(effective_k, total)
         selected_indices = set()
         for item in ranked[:k]:
             item.selected = True
