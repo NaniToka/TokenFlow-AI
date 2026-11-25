@@ -3,9 +3,10 @@ Enhanced request/response schemas with comprehensive validation.
 
 Provides Pydantic v2 models for:
 - API request/response payloads
-- Compression metadata and diagnostics
-- Error responses with structured error codes
-- WebSocket message types
+- Compression modes, multi-model pricing, and PII redaction reports
+- RAG indexing and retrieval endpoints
+- Automated Quality Evaluation & Ablation Inspection
+- Async background tasks and error taxonomy
 """
 
 from __future__ import annotations
@@ -15,7 +16,14 @@ from typing import Any, Literal
 
 from pydantic import BaseModel, Field, field_validator
 
-# --- Core Models ---
+
+class CompressionMode(str, Enum):
+    """Optimization strategies controlling ranking & pruning aggressiveness."""
+
+    BALANCED = "balanced"
+    AGGRESSIVE = "aggressive"
+    CODE_PRESERVING = "code_preserving"
+    VERBATIM_FACTS = "verbatim_facts"
 
 
 class Turn(BaseModel):
@@ -36,9 +44,6 @@ class Turn(BaseModel):
         if not stripped:
             raise ValueError("Turn content cannot be empty or whitespace-only")
         return stripped
-
-
-# --- Request Models ---
 
 
 class CompressRequest(BaseModel):
@@ -67,6 +72,22 @@ class CompressRequest(BaseModel):
         default=None, ge=0.0, le=1.0,
         description="Semantic vs recency weight (None = auto-tune)",
     )
+    target_model: str = Field(
+        default="gemini-1.5-flash",
+        description="Target downstream LLM for pricing and token savings calculation",
+    )
+    compression_mode: CompressionMode = Field(
+        default=CompressionMode.BALANCED,
+        description="Compression strategy preset",
+    )
+    sanitize_pii: bool = Field(
+        default=False,
+        description="Redact API keys, emails, JWTs, and IP addresses before output",
+    )
+    use_cache: bool = Field(
+        default=True,
+        description="Use semantic LRU summary cache when available",
+    )
 
 
 class BatchCompressRequest(BaseModel):
@@ -78,7 +99,13 @@ class BatchCompressRequest(BaseModel):
     )
 
 
-# --- Response Models ---
+class RedactionReport(BaseModel):
+    """Audit report of PII/secret redactions performed."""
+
+    enabled: bool = False
+    redactions_count: int = 0
+    xss_stripped: int = 0
+    redacted_types: list[str] = Field(default_factory=list)
 
 
 class CompressionMetadata(BaseModel):
@@ -88,25 +115,18 @@ class CompressionMetadata(BaseModel):
         default="hybrid",
         description="Ranking strategy used (e.g., 'bm25+dense_vector+recency')",
     )
-    alpha_used: float = Field(
-        default=0.7,
-        description="Effective alpha weight used for scoring",
-    )
-    drift_detected: bool = Field(
-        default=False,
-        description="Whether conversational drift was detected",
-    )
+    compression_mode: str = Field(default="balanced")
+    target_model: str = Field(default="gemini-1.5-flash")
+    alpha_used: float = Field(default=0.7)
+    drift_detected: bool = Field(default=False)
     turns_evaluated: int = Field(default=0)
     turns_selected: int = Field(default=0)
     turns_evicted: int = Field(default=0)
-    model_used: str = Field(
-        default="fallback_extractive",
-        description="LLM model used for summarization",
-    )
-    scores: list[dict[str, Any]] = Field(
-        default_factory=list,
-        description="Per-turn scoring breakdown",
-    )
+    model_used: str = Field(default="fallback_extractive")
+    cache_hit: bool = Field(default=False)
+    latency_ms: float = Field(default=0.0)
+    redaction: RedactionReport = Field(default_factory=RedactionReport)
+    scores: list[dict[str, Any]] = Field(default_factory=list)
 
 
 class CompressResponse(BaseModel):
@@ -122,10 +142,7 @@ class CompressResponse(BaseModel):
     cost_after_usd: float = Field(description="Estimated cost after compression")
     cost_saved_usd: float = Field(description="Estimated cost savings")
     compression_ratio: float = Field(description="Compression percentage")
-    metadata: CompressionMetadata = Field(
-        default_factory=CompressionMetadata,
-        description="Detailed compression diagnostics",
-    )
+    metadata: CompressionMetadata = Field(default_factory=CompressionMetadata)
 
 
 class BatchCompressResponse(BaseModel):
@@ -136,12 +153,110 @@ class BatchCompressResponse(BaseModel):
     total_cost_saved_usd: float
 
 
+# --- RAG Workbench Models ---
+
+
+class RAGIndexRequest(BaseModel):
+    """Request to chunk and index a document into the in-memory RAG store."""
+
+    text: str = Field(..., min_length=1, max_length=200_000)
+    chunk_size: int = Field(default=400, ge=100, le=4000)
+    chunk_overlap: int = Field(default=80, ge=0, le=500)
+    source_name: str = Field(default="workspace_document", max_length=128)
+
+
+class RAGChunkItem(BaseModel):
+    chunk_id: int
+    text: str
+    token_count: int
+    start_char: int
+    end_char: int
+    metadata: dict[str, Any] = Field(default_factory=dict)
+
+
+class RAGIndexResponse(BaseModel):
+    chunks_indexed: int
+    total_store_chunks: int
+    chunks: list[RAGChunkItem]
+
+
+class RAGQueryRequest(BaseModel):
+    query: str = Field(..., min_length=1, max_length=10_000)
+    top_k: int = Field(default=3, ge=1, le=20)
+    alpha: float = Field(default=0.5, ge=0.0, le=1.0)
+
+
+class RAGQueryResponse(BaseModel):
+    query: str
+    results: list[dict[str, Any]]
+    total_indexed: int
+
+
+# --- Evaluation & Ablation Models ---
+
+
+class EvaluateRequest(BaseModel):
+    history: list[Turn]
+    response: CompressResponse
+
+
+class EvaluateResponse(BaseModel):
+    original_tokens: int
+    compressed_tokens: int
+    tokens_saved: int
+    compression_ratio: float
+    lexical_recall: float
+    entity_coverage: float
+    semantic_fidelity: float
+    hallucination_risk: float
+    composite_grade: str
+
+
+class RankInspectRequest(BaseModel):
+    history: list[Turn] = Field(..., min_length=1, max_length=200)
+    current_message: str = Field(..., min_length=1, max_length=50_000)
+    top_k: int = Field(default=3, ge=1, le=20)
+    alpha: float | None = Field(default=None, ge=0.0, le=1.0)
+    compression_mode: CompressionMode = Field(default=CompressionMode.BALANCED)
+
+
+class RankInspectResponse(BaseModel):
+    alpha_used: float
+    drift_detected: bool
+    ranking_strategy: str
+    scores: list[dict[str, Any]]
+
+
+# --- Sanitization Endpoint Models ---
+
+
+class SanitizeRequest(BaseModel):
+    text: str = Field(..., max_length=100_000)
+    redact_pii: bool = Field(default=True)
+
+
+class SanitizeResponse(BaseModel):
+    sanitized_text: str
+    xss_stripped: int
+    redactions_count: int
+    redacted_types: list[str]
+
+
+# --- Async Task Models ---
+
+
+class AsyncTaskResponse(BaseModel):
+    task_id: str
+    status: str
+    duration_ms: float = 0.0
+    result: CompressResponse | None = None
+    error: str | None = None
+
+
 # --- Error Models ---
 
 
 class ErrorCode(str, Enum):
-    """Machine-readable error codes."""
-
     VALIDATION_ERROR = "VALIDATION_ERROR"
     EMPTY_MESSAGE = "EMPTY_MESSAGE"
     HISTORY_TOO_LARGE = "HISTORY_TOO_LARGE"
@@ -151,28 +266,22 @@ class ErrorCode(str, Enum):
 
 
 class ErrorDetail(BaseModel):
-    """Structured error detail."""
-
     field: str | None = None
     message: str
     value: Any | None = None
 
 
 class ErrorResponse(BaseModel):
-    """Standardized error response."""
-
     error: ErrorCode
     message: str
     details: list[ErrorDetail] = Field(default_factory=list)
     correlation_id: str | None = None
 
 
-# --- Stats Models ---
+# --- Stats & Health Models ---
 
 
 class SessionStats(BaseModel):
-    """Session analytics summary."""
-
     total_requests: int = 0
     total_original_tokens: int = 0
     total_compressed_tokens: int = 0
@@ -185,12 +294,7 @@ class SessionStats(BaseModel):
     request_history: list[dict[str, Any]] = Field(default_factory=list)
 
 
-# --- Health Check Models ---
-
-
 class HealthStatus(BaseModel):
-    """Application health check response."""
-
     status: str = "healthy"
     service: str = "TokenFlow AI"
     version: str = "2.0.0"
