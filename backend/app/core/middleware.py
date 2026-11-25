@@ -3,7 +3,7 @@ Custom middleware stack for request processing.
 
 Includes:
 - Correlation ID injection and propagation
-- Request timing and metrics collection
+- Request timing and metrics collection (feeds telemetry percentiles)
 - Security headers
 """
 
@@ -20,6 +20,7 @@ from app.core.logging import (
     request_meta_var,
     set_correlation_id,
 )
+from app.core.metrics import telemetry
 
 logger = get_logger(__name__)
 
@@ -29,17 +30,11 @@ TIMING_HEADER = "X-Response-Time-Ms"
 
 
 class CorrelationMiddleware(BaseHTTPMiddleware):
-    """
-    Injects and propagates correlation IDs for distributed tracing.
-
-    If the client sends an X-Correlation-ID header, it is reused.
-    Otherwise, a new UUID is generated per request.
-    """
+    """Injects and propagates correlation IDs for distributed tracing."""
 
     async def dispatch(
         self, request: Request, call_next: RequestResponseEndpoint
     ) -> Response:
-        # Extract or generate correlation ID
         cid = request.headers.get(CORRELATION_HEADER, str(uuid.uuid4()))
         request_id = str(uuid.uuid4())[:8]
 
@@ -52,11 +47,9 @@ class CorrelationMiddleware(BaseHTTPMiddleware):
 
         response = await call_next(request)
 
-        # Propagate IDs in response headers
         response.headers[CORRELATION_HEADER] = cid
         response.headers[REQUEST_ID_HEADER] = request_id
 
-        # Reset context
         correlation_id_var.set(None)
         request_meta_var.set({})
 
@@ -64,12 +57,7 @@ class CorrelationMiddleware(BaseHTTPMiddleware):
 
 
 class TimingMiddleware(BaseHTTPMiddleware):
-    """
-    Measures request processing time and logs slow requests.
-
-    Adds X-Response-Time-Ms header to every response.
-    Logs a warning for requests exceeding 1 second.
-    """
+    """Measures request processing time, records percentiles, and logs slow requests."""
 
     SLOW_REQUEST_THRESHOLD_MS = 1000
 
@@ -81,6 +69,7 @@ class TimingMiddleware(BaseHTTPMiddleware):
         elapsed_ms = round((time.perf_counter() - start) * 1000, 2)
 
         response.headers[TIMING_HEADER] = str(elapsed_ms)
+        telemetry.record_request(response.status_code, elapsed_ms)
 
         if elapsed_ms > self.SLOW_REQUEST_THRESHOLD_MS:
             logger.warning(
@@ -94,11 +83,7 @@ class TimingMiddleware(BaseHTTPMiddleware):
 
 
 class SecurityHeadersMiddleware(BaseHTTPMiddleware):
-    """
-    Adds security headers to all responses.
-
-    Implements OWASP recommended security headers for defense-in-depth.
-    """
+    """Adds OWASP recommended security headers to all responses."""
 
     async def dispatch(
         self, request: Request, call_next: RequestResponseEndpoint
