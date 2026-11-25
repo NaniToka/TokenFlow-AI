@@ -13,7 +13,9 @@ from app.core.config import Settings, get_settings
 
 if TYPE_CHECKING:
     from app.services.compression.pipeline import CompressionPipeline
+    from app.services.evaluation.evaluator import ContextQualityEvaluator
     from app.services.llm.client import LLMClientManager
+    from app.services.rag.retriever import ContextRetriever
     from app.services.ranking.engine import RankingEngine
     from app.services.stats_logger import StatsTracker
 
@@ -32,6 +34,8 @@ class ServiceContainer:
         self._ranking_engine: RankingEngine | None = None
         self._compression_pipeline: CompressionPipeline | None = None
         self._stats_tracker: StatsTracker | None = None
+        self._context_retriever: ContextRetriever | None = None
+        self._quality_evaluator: ContextQualityEvaluator | None = None
 
     @property
     def settings(self) -> Settings:
@@ -78,6 +82,22 @@ class ServiceContainer:
             self._stats_tracker = StatsTracker()
         return self._stats_tracker
 
+    @property
+    def context_retriever(self) -> ContextRetriever:
+        if self._context_retriever is None:
+            from app.services.rag.retriever import ContextRetriever
+
+            self._context_retriever = ContextRetriever(llm_client=self.llm_client)
+        return self._context_retriever
+
+    @property
+    def quality_evaluator(self) -> ContextQualityEvaluator:
+        if self._quality_evaluator is None:
+            from app.services.evaluation.evaluator import ContextQualityEvaluator
+
+            self._quality_evaluator = ContextQualityEvaluator()
+        return self._quality_evaluator
+
     async def shutdown(self) -> None:
         """Cleanup resources on application shutdown."""
         if self._llm_client:
@@ -118,3 +138,13 @@ def get_stats_tracker():
 def get_ranking_engine():
     """FastAPI dependency for the ranking engine."""
     return get_container().ranking_engine
+
+
+def get_context_retriever():
+    """FastAPI dependency for the RAG context retriever."""
+    return get_container().context_retriever
+
+
+def get_quality_evaluator():
+    """FastAPI dependency for the context quality evaluator."""
+    return get_container().quality_evaluator
