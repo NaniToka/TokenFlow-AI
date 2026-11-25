@@ -2,11 +2,20 @@
 <html lang="en">
   <head>
     <meta charset="UTF-8" />
+    <meta name="color-scheme" content="light dark" />
+    <script>
+      try {
+        var storedScheme = localStorage.getItem('color-scheme');
+        if (storedScheme === 'light' || storedScheme === 'dark') {
+          document.querySelector('meta[name="color-scheme"]').content = storedScheme;
+        }
+      } catch (e) {}
+    </script>
     <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>frontend</title>
-    <script type="module" crossorigin src="/assets/index-xS5XwAPR.js"></script>
-    <link rel="stylesheet" crossorigin href="/assets/index-DLOhHJxp.css">
+    <title>TokenFlow AI | Context Middleware &amp; RAG Workbench</title>
+    <script type="module" crossorigin src="/assets/index-BLL9hVIE.js"></script>
+    <link rel="stylesheet" crossorigin href="/assets/index-DcfoRjON.css">
   </head>
   <body>
     <div id="root"></div>
