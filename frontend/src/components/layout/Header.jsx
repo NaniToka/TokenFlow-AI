@@ -1,7 +1,17 @@
 import React, { useState, useEffect } from 'react';
-import { RotateCcw, Sparkles, Clock, Menu } from 'lucide-react';
+import { RotateCcw, Sparkles, Clock, Menu, Search, Keyboard, Sun, Moon, Radio } from 'lucide-react';
 
-export default function Header({ onResetStats, isResetting = false, onToggleMobileMenu }) {
+export default function Header({
+  onResetStats,
+  isResetting = false,
+  onToggleMobileMenu,
+  onOpenCommandPalette,
+  onOpenShortcuts,
+  resolvedTheme,
+  onToggleTheme,
+  useWebSocket,
+  onToggleWebSocket,
+}) {
   const [seconds, setSeconds] = useState(0);
 
   useEffect(() => {
@@ -18,51 +28,103 @@ export default function Header({ onResetStats, isResetting = false, onToggleMobi
   };
 
   return (
-    <header className="min-h-[4.5rem] py-3 sm:py-0 border-b border-white/10 bg-zinc-950/80 backdrop-blur-xl px-4 sm:px-8 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 sticky top-0 z-20">
-      <div className="flex items-center gap-3 w-full sm:w-auto justify-between sm:justify-start">
-        <div className="flex items-center gap-3">
-          <button
-            onClick={onToggleMobileMenu}
-            className="p-2 rounded-xl bg-zinc-900 border border-zinc-800 text-zinc-300 hover:text-white lg:hidden shrink-0"
-            aria-label="Toggle mobile menu"
-          >
-            <Menu className="w-5 h-5" />
-          </button>
-          <div>
-            <h2 className="text-base sm:text-xl font-bold text-zinc-100 tracking-tight leading-snug">
-              Prompt Memory Optimizer Dashboard
-            </h2>
-            <p className="text-[11px] sm:text-xs text-zinc-400">
-              Real-time semantic ranking & context compression middleware
-            </p>
-          </div>
+    <header
+      className="min-h-[4.25rem] py-2.5 px-4 sm:px-6 lg:px-8 tf-panel flex flex-wrap items-center justify-between gap-3 sticky top-0 z-20"
+      style={{ borderBottom: '1px solid var(--border-subtle)' }}
+    >
+      <div className="flex items-center gap-3 min-w-0">
+        <button
+          type="button"
+          onClick={onToggleMobileMenu}
+          className="tf-btn-target p-2 rounded-xl tf-subsurface tf-text-primary lg:hidden shrink-0 cursor-pointer"
+          aria-label="Toggle navigation menu"
+        >
+          <Menu className="w-5 h-5" aria-hidden="true" />
+        </button>
+
+        <div className="min-w-0">
+          <h1 className="text-base sm:text-lg font-bold tf-text-primary tracking-tight leading-snug truncate">
+            Intelligent Context Engineering Workstation
+          </h1>
+          <p className="text-[11px] sm:text-xs tf-text-secondary truncate">
+            Hybrid Okapi BM25 + Vector Ranking • Drift Detection • RAG Retrieval • PII Guard
+          </p>
         </div>
       </div>
 
-      <div className="flex flex-wrap items-center gap-2 sm:gap-3 w-full sm:w-auto justify-between sm:justify-end">
-        {/* Gemini Active Badge */}
-        <div className="flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-gradient-to-r from-violet-500/10 to-indigo-500/10 border border-violet-500/30 text-violet-300 text-[11px] sm:text-xs font-medium truncate max-w-full">
-          <Sparkles className="w-3.5 h-3.5 text-violet-400 animate-spin-slow shrink-0" />
-          <span className="truncate">Gemini 1.5 Flash + text-embedding-004</span>
+      <div className="flex flex-wrap items-center gap-2">
+        {/* Command Palette Trigger */}
+        <button
+          type="button"
+          onClick={onOpenCommandPalette}
+          className="tf-btn-target flex items-center gap-2 px-3 py-1.5 rounded-xl tf-subsurface text-xs tf-text-secondary hover:opacity-90 cursor-pointer"
+        >
+          <Search className="w-3.5 h-3.5" aria-hidden="true" />
+          <span className="hidden sm:inline font-medium">Commands</span>
+          <kbd className="px-1.5 py-0.5 text-[10px] font-mono rounded tf-card tf-text-muted">⌘K</kbd>
+        </button>
+
+        {/* WebSocket vs REST Transport Pill */}
+        <button
+          type="button"
+          onClick={onToggleWebSocket}
+          aria-pressed={useWebSocket}
+          className={`tf-btn-target flex items-center gap-1.5 px-2.5 py-1.5 rounded-xl text-[11px] font-mono font-semibold border transition-colors cursor-pointer ${
+            useWebSocket
+              ? 'bg-cyan-500/15 text-cyan-500 border-cyan-500/35'
+              : 'tf-subsurface tf-text-secondary'
+          }`}
+        >
+          <Radio className="w-3.5 h-3.5 shrink-0" aria-hidden="true" />
+          <span>{useWebSocket ? 'WS Stream' : 'REST API'}</span>
+        </button>
+
+        {/* Quick Theme Toggle */}
+        <button
+          type="button"
+          onClick={onToggleTheme}
+          className="tf-btn-target p-2 rounded-xl tf-subsurface tf-text-primary hover:opacity-85 cursor-pointer"
+          aria-label={resolvedTheme === 'dark' ? 'Switch to light theme' : 'Switch to dark theme'}
+        >
+          {resolvedTheme === 'dark' ? (
+            <Sun className="w-4 h-4 text-amber-400" aria-hidden="true" />
+          ) : (
+            <Moon className="w-4 h-4 text-indigo-600" aria-hidden="true" />
+          )}
+        </button>
+
+        {/* Keyboard Shortcuts Trigger */}
+        <button
+          type="button"
+          onClick={onOpenShortcuts}
+          className="tf-btn-target p-2 rounded-xl tf-subsurface tf-text-secondary hover:opacity-85 hidden sm:inline-flex items-center justify-center cursor-pointer"
+          aria-label="Keyboard shortcuts guide"
+        >
+          <Keyboard className="w-4 h-4" aria-hidden="true" />
+        </button>
+
+        {/* Active Pipeline Badge */}
+        <div className="hidden xl:flex items-center gap-1.5 px-2.5 py-1.5 rounded-full bg-emerald-500/10 border border-emerald-500/25 text-emerald-500 text-[11px] font-mono font-semibold">
+          <Sparkles className="w-3.5 h-3.5 tf-spin-slow shrink-0" aria-hidden="true" />
+          <span>Stateless Engine</span>
         </div>
 
-        <div className="flex items-center gap-2">
-          {/* Session Timer */}
-          <div className="flex items-center gap-1.5 text-[11px] sm:text-xs text-zinc-400 px-2.5 py-1 rounded-xl bg-zinc-900/60 border border-white/5 shrink-0">
-            <Clock className="w-3.5 h-3.5 text-zinc-500 shrink-0" />
-            <span>{formatDuration(seconds)}</span>
-          </div>
-
-          {/* Reset Button */}
-          <button
-            onClick={onResetStats}
-            disabled={isResetting}
-            className="flex items-center gap-1.5 px-3 py-1 rounded-xl bg-rose-500/10 hover:bg-rose-500/20 text-rose-400 border border-rose-500/30 text-[11px] sm:text-xs font-semibold transition-all active:scale-95 disabled:opacity-50 shrink-0"
-          >
-            <RotateCcw className={`w-3.5 h-3.5 ${isResetting ? 'animate-spin' : ''}`} />
-            <span>Reset</span>
-          </button>
+        {/* Session Uptime */}
+        <div className="hidden md:flex items-center gap-1.5 text-[11px] font-mono tf-text-secondary px-2.5 py-1.5 rounded-xl tf-subsurface shrink-0">
+          <Clock className="w-3.5 h-3.5 tf-text-muted shrink-0" aria-hidden="true" />
+          <span>{formatDuration(seconds)}</span>
         </div>
+
+        {/* Reset Telemetry Button */}
+        <button
+          type="button"
+          onClick={onResetStats}
+          disabled={isResetting}
+          className="tf-btn-target flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-rose-500/10 hover:bg-rose-500/20 text-rose-500 border border-rose-500/30 text-xs font-semibold transition-all active:scale-95 disabled:opacity-50 cursor-pointer"
+        >
+          <RotateCcw className={`w-3.5 h-3.5 ${isResetting ? 'animate-spin' : ''}`} aria-hidden="true" />
+          <span>Reset</span>
+        </button>
       </div>
     </header>
   );

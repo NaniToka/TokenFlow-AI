@@ -1,21 +1,46 @@
 import React, { useState } from 'react';
-import { Play, Sparkles, Layers, Sliders, MessageSquare, Search, Filter } from 'lucide-react';
+import { Sparkles, MessageSquare, Search, Filter, Shield, Cpu, SlidersHorizontal, Zap } from 'lucide-react';
 import { DEMO_PRESETS } from '../../data/demoConversation';
 import Card from '../common/Card';
+
+const MODEL_OPTIONS = [
+  { id: 'gemini-1.5-flash', label: 'Gemini 1.5 Flash ($0.075/1M)' },
+  { id: 'gemini-2.0-flash', label: 'Gemini 2.0 Flash ($0.10/1M)' },
+  { id: 'gemini-1.5-pro', label: 'Gemini 1.5 Pro ($1.25/1M)' },
+  { id: 'gpt-4o-mini', label: 'GPT-4o Mini ($0.15/1M)' },
+  { id: 'gpt-4o', label: 'GPT-4o ($2.50/1M)' },
+  { id: 'claude-3-5-sonnet', label: 'Claude 3.5 Sonnet ($3.00/1M)' },
+];
+
+const MODE_OPTIONS = [
+  { id: 'balanced', label: 'Balanced Hybrid' },
+  { id: 'aggressive', label: 'Aggressive Cost Saver' },
+  { id: 'code_preserving', label: 'Code & Stack-Trace Guard' },
+  { id: 'verbatim_facts', label: 'Verbatim Metrics & Entities' },
+];
 
 export default function DemoModeSelector({
   selectedPresetId,
   onSelectPreset,
   topK,
   onTopKChange,
+  targetModel,
+  onTargetModelChange,
+  compressionMode,
+  onCompressionModeChange,
+  alphaOverride,
+  onAlphaOverrideChange,
+  sanitizePii,
+  onSanitizePiiChange,
+  useCache,
+  onUseCacheChange,
   onRunCompression,
-  isCompressing
+  isCompressing,
 }) {
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedDomain, setSelectedDomain] = useState('All');
 
   const currentPreset = DEMO_PRESETS.find((p) => p.id === selectedPresetId) || DEMO_PRESETS[0];
-
   const domains = ['All', ...new Set(DEMO_PRESETS.map((p) => p.domain))];
 
   const filteredPresets = DEMO_PRESETS.filter((preset) => {
@@ -29,127 +54,218 @@ export default function DemoModeSelector({
 
   return (
     <Card
-      title="Built-in Demo Conversation Scenarios"
-      subtitle={`Explore 21+ industry-specific multi-turn scenarios (20–30 turns each)`}
+      title="Strategy Controls & Multi-Turn Benchmark Scenarios"
+      subtitle="Tune ranking parameters, target LLM pricing, PII redaction, and test 21+ enterprise workloads"
       action={
-        <div className="flex items-center gap-2">
-          <span className="text-xs text-zinc-400 font-medium">Top-K Memory Turns:</span>
-          <div className="flex items-center gap-2 bg-zinc-950 px-3 py-1 rounded-xl border border-white/5">
+        <div className="flex flex-wrap items-center gap-3">
+          <label className="flex items-center gap-2 text-xs tf-text-secondary font-medium">
+            <span>Top-K Turns:</span>
             <input
               type="range"
               min="1"
               max="10"
               value={topK}
               onChange={(e) => onTopKChange(Number(e.target.value))}
-              className="w-24 accent-emerald-500 cursor-pointer"
+              className="w-24 cursor-pointer"
             />
-            <span className="text-xs font-bold text-emerald-400 w-4 text-center">{topK}</span>
-          </div>
+            <span className="font-mono font-bold text-emerald-500 w-5 text-center">{topK}</span>
+          </label>
         </div>
       }
     >
-      <div className="space-y-6">
-        {/* Search & Domain Filter Bar */}
-        <div className="flex flex-col sm:flex-row items-center justify-between gap-3 bg-zinc-950/60 p-3 rounded-xl border border-zinc-800">
-          <div className="relative w-full sm:w-72">
-            <Search className="w-4 h-4 text-zinc-400 absolute left-3 top-2.5" />
+      <div className="space-y-5">
+        {/* Hyperparameter & Guardrail Strategy Strip */}
+        <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-3 p-3.5 rounded-xl tf-subsurface">
+          <div>
+            <label htmlFor="target-model-select" className="block text-[10px] font-bold uppercase tracking-wider tf-text-muted mb-1">
+              <Cpu className="w-3 h-3 inline mr-1" aria-hidden="true" />
+              Target LLM Pricing
+            </label>
+            <select
+              id="target-model-select"
+              value={targetModel}
+              onChange={(e) => onTargetModelChange(e.target.value)}
+              className="tf-input w-full px-2.5 py-1.5 text-xs font-medium"
+            >
+              {MODEL_OPTIONS.map((m) => (
+                <option key={m.id} value={m.id}>{m.label}</option>
+              ))}
+            </select>
+          </div>
+
+          <div>
+            <label htmlFor="compression-mode-select" className="block text-[10px] font-bold uppercase tracking-wider tf-text-muted mb-1">
+              <SlidersHorizontal className="w-3 h-3 inline mr-1" aria-hidden="true" />
+              Compression Profile
+            </label>
+            <select
+              id="compression-mode-select"
+              value={compressionMode}
+              onChange={(e) => onCompressionModeChange(e.target.value)}
+              className="tf-input w-full px-2.5 py-1.5 text-xs font-medium"
+            >
+              {MODE_OPTIONS.map((m) => (
+                <option key={m.id} value={m.id}>{m.label}</option>
+              ))}
+            </select>
+          </div>
+
+          <div>
+            <div className="flex items-center justify-between mb-1">
+              <label htmlFor="alpha-slider" className="text-[10px] font-bold uppercase tracking-wider tf-text-muted">
+                Semantic vs Recency (α)
+              </label>
+              <button
+                type="button"
+                onClick={() => onAlphaOverrideChange(alphaOverride === null ? 0.7 : null)}
+                className="text-[10px] font-mono font-bold text-emerald-500 hover:underline cursor-pointer"
+              >
+                {alphaOverride === null ? 'Auto-Tuned' : `Manual: ${alphaOverride.toFixed(2)} (Reset)`}
+              </button>
+            </div>
             <input
-              type="text"
-              value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
-              placeholder="Search scenarios by industry or topic..."
-              className="glass-input pl-9 pr-4 py-1.5 text-xs w-full"
+              id="alpha-slider"
+              type="range"
+              min="0"
+              max="1"
+              step="0.05"
+              value={alphaOverride === null ? 0.7 : alphaOverride}
+              onChange={(e) => onAlphaOverrideChange(parseFloat(e.target.value))}
+              className="w-full cursor-pointer mt-1.5"
             />
           </div>
 
-          <div className="flex items-center gap-2 w-full sm:w-auto overflow-x-auto pb-1 sm:pb-0">
-            <Filter className="w-3.5 h-3.5 text-zinc-400 shrink-0" />
+          <div className="flex flex-col justify-center gap-2">
+            <label className="flex items-center gap-2 text-xs font-medium tf-text-primary cursor-pointer">
+              <input
+                type="checkbox"
+                checked={sanitizePii}
+                onChange={(e) => onSanitizePiiChange(e.target.checked)}
+                className="w-4 h-4 rounded"
+              />
+              <Shield className="w-3.5 h-3.5 text-amber-500 shrink-0" aria-hidden="true" />
+              <span>Redact PII &amp; API Keys</span>
+            </label>
+
+            <label className="flex items-center gap-2 text-xs font-medium tf-text-primary cursor-pointer">
+              <input
+                type="checkbox"
+                checked={useCache}
+                onChange={(e) => onUseCacheChange(e.target.checked)}
+                className="w-4 h-4 rounded"
+              />
+              <Zap className="w-3.5 h-3.5 text-cyan-500 shrink-0" aria-hidden="true" />
+              <span>Semantic LRU Cache</span>
+            </label>
+          </div>
+        </div>
+
+        {/* Search & Domain Filter Bar */}
+        <div className="flex flex-col sm:flex-row items-center justify-between gap-3 p-3 rounded-xl tf-subsurface">
+          <div className="relative w-full sm:w-80">
+            <Search className="w-4 h-4 tf-text-muted absolute left-3 top-2.5" aria-hidden="true" />
+            <input
+              type="search"
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              placeholder="Search scenarios by domain, stack, or keyword..."
+              aria-label="Search scenarios"
+              className="tf-input pl-9 pr-3 py-1.5 text-xs w-full"
+            />
+          </div>
+
+          <div className="flex items-center gap-2 w-full sm:w-auto">
+            <Filter className="w-3.5 h-3.5 tf-text-muted shrink-0" aria-hidden="true" />
             <select
               value={selectedDomain}
               onChange={(e) => setSelectedDomain(e.target.value)}
-              className="glass-input text-xs px-3 py-1.5 bg-zinc-900 border-zinc-800 text-zinc-200"
+              aria-label="Filter scenarios by domain"
+              className="tf-input text-xs px-3 py-1.5"
             >
               {domains.map((domain) => (
-                <option key={domain} value={domain}>
-                  {domain}
-                </option>
+                <option key={domain} value={domain}>{domain}</option>
               ))}
             </select>
-            <span className="text-[11px] text-zinc-500 font-mono shrink-0">
-              ({filteredPresets.length} scenarios)
+            <span className="text-[11px] font-mono tf-text-muted shrink-0">
+              ({filteredPresets.length})
             </span>
           </div>
         </div>
 
         {/* Preset Selector Grid */}
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 max-h-[540px] overflow-y-auto pr-1">
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3 max-h-[380px] overflow-y-auto tf-scroller pr-1">
           {filteredPresets.map((preset) => {
             const isSelected = preset.id === currentPreset.id;
             return (
-              <div
+              <button
                 key={preset.id}
+                type="button"
                 onClick={() => onSelectPreset(preset.id)}
-                className={`p-4 rounded-xl border cursor-pointer transition-all duration-200 flex flex-col justify-between ${
+                className={`p-3.5 rounded-xl border text-left transition-all flex flex-col justify-between cursor-pointer ${
                   isSelected
-                    ? 'bg-emerald-500/10 border-emerald-500/50 shadow-lg shadow-emerald-500/10'
-                    : 'bg-zinc-950/60 border-zinc-800 hover:border-zinc-700'
+                    ? 'bg-emerald-500/10 border-emerald-500/50 shadow-sm'
+                    : 'tf-subsurface hover:border-emerald-500/30'
                 }`}
               >
                 <div>
-                  <div className="flex items-center justify-between mb-1.5">
-                    <span className="text-[10px] font-bold uppercase tracking-wider text-emerald-400 bg-emerald-500/10 px-2 py-0.5 rounded border border-emerald-500/20">
+                  <div className="flex items-center justify-between gap-2 mb-1.5">
+                    <span className="text-[10px] font-bold uppercase tracking-wider text-emerald-500 bg-emerald-500/10 px-2 py-0.5 rounded border border-emerald-500/20 truncate">
                       {preset.domain}
                     </span>
-                    <span className="text-[10px] font-semibold px-2 py-0.5 rounded bg-zinc-900 border border-zinc-800 text-zinc-400">
+                    <span className="text-[10px] font-mono font-semibold px-2 py-0.5 rounded tf-card tf-text-secondary shrink-0">
                       {preset.history.length} turns
                     </span>
                   </div>
 
-                  <h4 className={`text-xs font-bold mb-1 ${isSelected ? 'text-emerald-400' : 'text-zinc-200'}`}>
+                  <h3 className={`text-xs font-bold mb-1 ${isSelected ? 'text-emerald-500' : 'tf-text-primary'}`}>
                     {preset.title}
-                  </h4>
-                  <p className="text-[11px] text-zinc-400 leading-relaxed mb-3 line-clamp-2">
+                  </h3>
+                  <p className="text-[11px] tf-text-secondary leading-relaxed mb-2.5 line-clamp-2">
                     {preset.description}
                   </p>
                 </div>
 
-                <div className="flex items-center justify-between text-[10px] text-zinc-500 font-mono border-t border-white/5 pt-2 mt-auto">
-                  <span className="truncate max-w-[170px]">Q: {preset.current_message}</span>
-                  <span className={isSelected ? 'text-emerald-400 font-semibold' : 'text-zinc-500'}>
-                    {isSelected ? '✓ Selected' : 'Load'}
+                <div
+                  className="flex items-center justify-between text-[10px] font-mono pt-2 mt-auto w-full gap-2"
+                  style={{ borderTop: '1px solid var(--border-subtle)' }}
+                >
+                  <span className="truncate tf-text-muted">Q: {preset.current_message}</span>
+                  <span className={`shrink-0 font-bold ${isSelected ? 'text-emerald-500' : 'tf-text-muted'}`}>
+                    {isSelected ? '✓ Active' : 'Load'}
                   </span>
                 </div>
-              </div>
+              </button>
             );
           })}
         </div>
 
-        {/* Selected Preset Action Footer */}
-        <div className="p-4 rounded-xl bg-zinc-950/80 border border-zinc-800 flex flex-col sm:flex-row items-center justify-between gap-4">
-          <div className="flex items-center gap-3">
-            <div className="w-10 h-10 rounded-xl bg-emerald-500/10 border border-emerald-500/20 flex items-center justify-center text-emerald-400 shrink-0">
-              <MessageSquare className="w-5 h-5" />
+        {/* Action Footer */}
+        <div className="p-4 rounded-xl tf-subsurface flex flex-col sm:flex-row items-center justify-between gap-4">
+          <div className="flex items-center gap-3 min-w-0">
+            <div className="w-10 h-10 rounded-xl bg-emerald-500/10 border border-emerald-500/25 flex items-center justify-center text-emerald-500 shrink-0">
+              <MessageSquare className="w-5 h-5" aria-hidden="true" />
             </div>
-            <div>
-              <p className="text-xs font-bold text-zinc-200 flex items-center gap-2">
+            <div className="min-w-0">
+              <p className="text-xs font-bold tf-text-primary flex flex-wrap items-center gap-2">
                 <span>{currentPreset.title}</span>
-                <span className="text-[10px] text-emerald-400 bg-emerald-500/10 px-2 py-0.5 rounded border border-emerald-500/20">
+                <span className="text-[10px] text-emerald-500 bg-emerald-500/10 px-2 py-0.5 rounded border border-emerald-500/25">
                   {currentPreset.domain}
                 </span>
               </p>
-              <p className="text-[11px] text-zinc-400">
-                Ready to compress <strong className="text-zinc-200">{currentPreset.history.length} history turns</strong> with query: "{currentPreset.current_message.slice(0, 50)}..."
+              <p className="text-[11px] tf-text-secondary truncate">
+                {currentPreset.history.length} turns • Target: <strong className="font-mono">{targetModel}</strong> • Mode: <strong className="font-mono">{compressionMode}</strong>
               </p>
             </div>
           </div>
 
           <button
+            type="button"
             onClick={onRunCompression}
             disabled={isCompressing}
-            className="w-full sm:w-auto flex items-center justify-center gap-2 px-5 py-2.5 rounded-xl bg-gradient-to-r from-emerald-500 to-cyan-500 hover:from-emerald-400 hover:to-cyan-400 text-zinc-950 font-bold text-xs shadow-lg shadow-emerald-500/20 transition-all active:scale-95 disabled:opacity-50 shrink-0"
+            className="tf-btn-target w-full sm:w-auto flex items-center justify-center gap-2 px-5 py-2.5 rounded-xl bg-gradient-to-r from-emerald-500 to-cyan-500 hover:from-emerald-400 hover:to-cyan-400 text-zinc-950 font-bold text-xs shadow-lg shadow-emerald-500/20 transition-all active:scale-95 disabled:opacity-50 shrink-0 cursor-pointer"
           >
-            <Sparkles className={`w-4 h-4 ${isCompressing ? 'animate-spin' : ''}`} />
-            <span>{isCompressing ? 'Compressing Memory...' : 'Run TokenFlow Compression'}</span>
+            <Sparkles className={`w-4 h-4 ${isCompressing ? 'animate-spin' : ''}`} aria-hidden="true" />
+            <span>{isCompressing ? 'Optimizing Context...' : 'Run TokenFlow Pipeline'}</span>
           </button>
         </div>
       </div>
