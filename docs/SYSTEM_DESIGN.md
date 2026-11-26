@@ -46,4 +46,6 @@ $$\Delta C = \frac{T_{\text{orig}} - T_{\text{compressed}}}{10^6} \times P_{\tex
 ## 3. High-Concurrency Scale-Out Strategy
 - **Horizontal Pod Autoscaling**: Stateless container instances scale linearly on Kubernetes or Google Cloud Run.
 - **Sub-Millisecond Semantic Cache**: SHA256 hashed queries check LRU memory cache before dispatching embedding requests.
-- **Streaming WebSockets**: Real-time phase reporting over bidirectional channels for instant UI updates.
+- **Streaming WebSockets & SSE**: Real-time phase reporting over bidirectional WebSocket and HTTP `text/event-stream` channels.
+- **Fault-Tolerant Circuit Breaker**: 3-state `CLOSED -> OPEN -> HALF_OPEN` upstream API guard ensures immediate fallback to local BM25/RRF algorithms during LLM provider outages.
+- **Zero-Trust Security Layer**: Deterministic `INJ-001..005` prompt injection scanning paired with PII/XSS redaction and zero-prompt-retention ring-buffer telemetry.
