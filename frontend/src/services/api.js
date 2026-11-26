@@ -93,6 +93,107 @@ export const getHealth = async () => {
   return response.data;
 };
 
+// =========================================================================
+// TokenFlow AI v3.0 Enterprise Endpoints
+// =========================================================================
+
+export const compressOpenAIChat = async (payload) => {
+  const response = await apiClient.post('/chat/compress', payload);
+  return response.data;
+};
+
+export const uploadRagFile = async (payload) => {
+  const response = await apiClient.post('/rag/upload', payload);
+  return response.data;
+};
+
+export const runNeedleTest = async (payload) => {
+  const response = await apiClient.post('/evaluate/needle', payload);
+  return response.data;
+};
+
+export const runABExperiment = async (payload) => {
+  const response = await apiClient.post('/experiments/compare', payload);
+  return response.data;
+};
+
+export const scanGuardrails = async (text, redactPii = true) => {
+  const response = await apiClient.post('/guard/scan', { text, redact_pii: redactPii });
+  return response.data;
+};
+
+export const getAuditLogs = async (limit = 50) => {
+  const response = await apiClient.get('/logs', { params: { limit } });
+  return response.data;
+};
+
+export const clearAuditLogs = async () => {
+  const response = await apiClient.delete('/logs');
+  return response.data;
+};
+
+export const getSdkSnippets = async (params = {}) => {
+  const response = await apiClient.get('/sdk-snippets', { params });
+  return response.data;
+};
+
+export const getCircuitBreaker = async () => {
+  const response = await apiClient.get('/circuit-breaker');
+  return response.data;
+};
+
+export const resetCircuitBreaker = async () => {
+  const response = await apiClient.post('/circuit-breaker/reset');
+  return response.data;
+};
+
+/**
+ * Streams real-time compression stage events over Server-Sent Events (SSE).
+ */
+export const streamCompressSSE = async (payload, onStage) => {
+  const res = await fetch(`${API_BASE_URL}/compress/stream`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(payload),
+  });
+
+  if (!res.ok || !res.body) {
+    throw new Error(`SSE stream request failed with status ${res.status}`);
+  }
+
+  const reader = res.body.getReader();
+  const decoder = new TextDecoder('utf-8');
+  let buffer = '';
+  let finalResult = null;
+
+  while (true) {
+    const { value, done } = await reader.read();
+    if (done) break;
+    buffer += decoder.decode(value, { stream: true });
+
+    const frames = buffer.split('\n\n');
+    buffer = frames.pop() || '';
+
+    for (const frame of frames) {
+      const dataLine = frame
+        .split('\n')
+        .find((line) => line.startsWith('data:'));
+      if (!dataLine) continue;
+
+      const parsed = JSON.parse(dataLine.slice(5).trim());
+      if (onStage) onStage(parsed);
+      if (parsed.stage === 'complete' && parsed.result) {
+        finalResult = parsed.result;
+      }
+    }
+  }
+
+  if (!finalResult) {
+    throw new Error('SSE stream completed without returning a result payload.');
+  }
+  return finalResult;
+};
+
 /**
  * Streams real-time compression stage events over WebSocket.
  */
