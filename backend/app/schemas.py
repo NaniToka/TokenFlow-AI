@@ -2,11 +2,10 @@
 Enhanced request/response schemas with comprehensive validation.
 
 Provides Pydantic v2 models for:
-- API request/response payloads
-- Compression modes, multi-model pricing, and PII redaction reports
-- RAG indexing and retrieval endpoints
-- Automated Quality Evaluation & Ablation Inspection
-- Async background tasks and error taxonomy
+- API request/response payloads (v1/v2/OpenAI proxy)
+- RRF fusion, MMR diversity, Cross-Encoder reranking, Knapsack budgeting
+- RAG indexing, file upload, HyDE query expansion, citations
+- Prompt Injection Firewall, Needle-in-a-Haystack, A/B Experiments, Salience Heat-Maps
 """
 
 from __future__ import annotations
@@ -80,9 +79,41 @@ class CompressRequest(BaseModel):
         default=CompressionMode.BALANCED,
         description="Compression strategy preset",
     )
+    fusion_method: Literal["linear", "rrf"] = Field(
+        default="linear",
+        description="Score fusion method: linear weighted sum or Reciprocal Rank Fusion",
+    )
+    use_mmr: bool = Field(
+        default=False,
+        description="Enable Maximal Marginal Relevance diversity selection",
+    )
+    mmr_lambda: float = Field(
+        default=0.7, ge=0.0, le=1.0,
+        description="MMR relevance vs diversity trade-off",
+    )
+    use_reranker: bool = Field(
+        default=False,
+        description="Apply second-stage N-gram + identifier cross-encoder reranking",
+    )
+    use_dedup: bool = Field(
+        default=True,
+        description="Collapse near-duplicate retry/boilerplate turns prior to ranking",
+    )
+    use_hierarchical: bool = Field(
+        default=True,
+        description="Enable hierarchical map-reduce summarization for >12 evicted turns",
+    )
+    max_context_tokens: int | None = Field(
+        default=None, ge=64, le=1_000_000,
+        description="Optional hard token budget enforced via greedy knapsack packing",
+    )
     sanitize_pii: bool = Field(
         default=False,
         description="Redact API keys, emails, JWTs, and IP addresses before output",
+    )
+    scan_prompt_injection: bool = Field(
+        default=True,
+        description="Run Prompt Injection Firewall diagnostics on request text",
     )
     use_cache: bool = Field(
         default=True,
@@ -108,24 +139,37 @@ class RedactionReport(BaseModel):
     redacted_types: list[str] = Field(default_factory=list)
 
 
+class FirewallReport(BaseModel):
+    """Prompt injection & jailbreak scan telemetry."""
+
+    is_safe: bool = True
+    risk_score: float = 0.0
+    highest_severity: str = "NONE"
+    findings: list[dict[str, Any]] = Field(default_factory=list)
+
+
 class CompressionMetadata(BaseModel):
     """Detailed metadata about the compression process."""
 
-    ranking_strategy: str = Field(
-        default="hybrid",
-        description="Ranking strategy used (e.g., 'bm25+dense_vector+recency')",
-    )
+    ranking_strategy: str = Field(default="hybrid")
     compression_mode: str = Field(default="balanced")
+    fusion_method: str = Field(default="linear")
     target_model: str = Field(default="gemini-1.5-flash")
     alpha_used: float = Field(default=0.7)
     drift_detected: bool = Field(default=False)
     turns_evaluated: int = Field(default=0)
     turns_selected: int = Field(default=0)
     turns_evicted: int = Field(default=0)
+    duplicates_removed: int = Field(default=0)
+    dropped_for_budget: int = Field(default=0)
+    epochs_summarized: int = Field(default=0)
     model_used: str = Field(default="fallback_extractive")
     cache_hit: bool = Field(default=False)
     latency_ms: float = Field(default=0.0)
     redaction: RedactionReport = Field(default_factory=RedactionReport)
+    firewall: FirewallReport = Field(default_factory=FirewallReport)
+    knowledge_graph: dict[str, Any] = Field(default_factory=dict)
+    salience_tokens: list[dict[str, Any]] = Field(default_factory=list)
     scores: list[dict[str, Any]] = Field(default_factory=list)
 
 
@@ -153,16 +197,43 @@ class BatchCompressResponse(BaseModel):
     total_cost_saved_usd: float
 
 
+# --- OpenAI Drop-in Compatibility Models ---
+
+
+class OpenAIChatCompressRequest(BaseModel):
+    messages: list[dict[str, str]] = Field(..., min_length=1, max_length=200)
+    top_k: int = Field(default=3, ge=1, le=20)
+    target_model: str = Field(default="gpt-4o")
+    compression_mode: str = Field(default="balanced")
+    max_context_tokens: int | None = Field(default=None, ge=64, le=1_000_000)
+    sanitize_pii: bool = Field(default=False)
+
+
+class OpenAIChatCompressResponse(BaseModel):
+    messages: list[dict[str, str]]
+    original_tokens: int
+    compressed_tokens: int
+    tokens_saved: int
+    compression_ratio: float
+    cost_saved_usd: float
+
+
 # --- RAG Workbench Models ---
 
 
 class RAGIndexRequest(BaseModel):
-    """Request to chunk and index a document into the in-memory RAG store."""
-
     text: str = Field(..., min_length=1, max_length=200_000)
     chunk_size: int = Field(default=400, ge=100, le=4000)
     chunk_overlap: int = Field(default=80, ge=0, le=500)
     source_name: str = Field(default="workspace_document", max_length=128)
+
+
+class RAGFileUploadRequest(BaseModel):
+    filename: str = Field(..., min_length=1, max_length=256)
+    content: str = Field(..., min_length=1, max_length=1_000_000)
+    is_base64: bool = Field(default=False)
+    chunk_size: int = Field(default=400, ge=100, le=4000)
+    chunk_overlap: int = Field(default=80, ge=0, le=500)
 
 
 class RAGChunkItem(BaseModel):
@@ -184,15 +255,20 @@ class RAGQueryRequest(BaseModel):
     query: str = Field(..., min_length=1, max_length=10_000)
     top_k: int = Field(default=3, ge=1, le=20)
     alpha: float = Field(default=0.5, ge=0.0, le=1.0)
+    use_hyde: bool = Field(default=True)
+    use_reranker: bool = Field(default=True)
 
 
 class RAGQueryResponse(BaseModel):
     query: str
+    expanded_query: str = ""
+    added_terms: list[str] = Field(default_factory=list)
     results: list[dict[str, Any]]
+    citations: dict[str, Any] = Field(default_factory=dict)
     total_indexed: int
 
 
-# --- Evaluation & Ablation Models ---
+# --- Evaluation, Needle-in-Haystack & A/B Experiment Models ---
 
 
 class EvaluateRequest(BaseModel):
@@ -218,6 +294,9 @@ class RankInspectRequest(BaseModel):
     top_k: int = Field(default=3, ge=1, le=20)
     alpha: float | None = Field(default=None, ge=0.0, le=1.0)
     compression_mode: CompressionMode = Field(default=CompressionMode.BALANCED)
+    fusion_method: Literal["linear", "rrf"] = Field(default="linear")
+    use_mmr: bool = Field(default=False)
+    use_reranker: bool = Field(default=False)
 
 
 class RankInspectResponse(BaseModel):
@@ -227,7 +306,22 @@ class RankInspectResponse(BaseModel):
     scores: list[dict[str, Any]]
 
 
-# --- Sanitization Endpoint Models ---
+class NeedleTestRequest(BaseModel):
+    haystack_turns: int = Field(default=20, ge=4, le=60)
+    needle_depth_pct: int = Field(default=25, ge=0, le=100)
+    top_k: int = Field(default=3, ge=1, le=10)
+    fusion_method: Literal["linear", "rrf"] = Field(default="rrf")
+    compression_mode: str = Field(default="balanced")
+
+
+class ABExperimentRequest(BaseModel):
+    history: list[Turn] = Field(..., min_length=1, max_length=200)
+    current_message: str = Field(..., min_length=1, max_length=50_000)
+    variant_a: dict[str, Any] = Field(default_factory=lambda: {"top_k": 3, "fusion_method": "linear", "compression_mode": "balanced"})
+    variant_b: dict[str, Any] = Field(default_factory=lambda: {"top_k": 3, "fusion_method": "rrf", "use_mmr": True, "use_reranker": True, "compression_mode": "code_preserving"})
+
+
+# --- Security & Sanitization Endpoint Models ---
 
 
 class SanitizeRequest(BaseModel):
@@ -240,6 +334,11 @@ class SanitizeResponse(BaseModel):
     xss_stripped: int
     redactions_count: int
     redacted_types: list[str]
+
+
+class GuardScanRequest(BaseModel):
+    text: str = Field(..., max_length=100_000)
+    redact_pii: bool = Field(default=True)
 
 
 # --- Async Task Models ---
@@ -297,8 +396,9 @@ class SessionStats(BaseModel):
 class HealthStatus(BaseModel):
     status: str = "healthy"
     service: str = "TokenFlow AI"
-    version: str = "2.0.0"
+    version: str = "3.0.0"
     environment: str = "development"
     llm_available: bool = False
     uptime_seconds: float = 0.0
+    circuit_breaker_state: str = "CLOSED"
     features: dict[str, bool] = Field(default_factory=dict)
