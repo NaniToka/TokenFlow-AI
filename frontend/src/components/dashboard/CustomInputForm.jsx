@@ -144,9 +144,10 @@ export default function CustomInputForm({
           <label className="flex items-center gap-2 text-xs font-medium tf-text-primary cursor-pointer">
             <input
               type="checkbox"
+              switch=""
               checked={sanitizePii}
               onChange={(e) => onSanitizePiiChange(e.target.checked)}
-              className="w-4 h-4 rounded"
+              className="tf-switch"
             />
             <Shield className="w-4 h-4 text-amber-500" aria-hidden="true" />
             <span>Enable PII &amp; API Key Redaction</span>
