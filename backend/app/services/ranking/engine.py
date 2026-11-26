@@ -22,6 +22,9 @@ import numpy as np
 from app.core.config import FeatureFlags, RankingConfig
 from app.core.logging import get_logger
 from app.schemas import Turn
+from app.services.ranking.fusion import compute_rrf_scores
+from app.services.ranking.mmr import mmr_select_indices
+from app.services.ranking.reranker import CrossEncoderReranker
 
 logger = get_logger(__name__)
 
@@ -269,6 +272,7 @@ class RankingEngine:
         self._features = features
         self._llm_client = llm_client
         self._bm25 = BM25Scorer(k1=config.BM25_K1, b=config.BM25_B)
+        self._reranker = CrossEncoderReranker()
         self._drift_detector = DriftDetector(
             window_size=config.DRIFT_WINDOW_SIZE,
             threshold=config.DRIFT_THRESHOLD,
@@ -281,19 +285,16 @@ class RankingEngine:
         top_k: int = 3,
         alpha: float | None = None,
         compression_mode: str = "balanced",
+        fusion_method: str = "linear",
+        use_mmr: bool = False,
+        mmr_lambda: float = 0.7,
+        use_reranker: bool = False,
     ) -> RankingResult:
         """
         Rank conversation history using multi-strategy scoring.
 
-        Args:
-            history: Conversation history turns.
-            current_message: Current user query.
-            top_k: Number of turns to select.
-            alpha: Override for semantic vs recency weight (auto if None).
-            compression_mode: Strategy mode ('balanced', 'aggressive', 'code_preserving', 'verbatim_facts').
-
-        Returns:
-            RankingResult with selected/unselected turns and metadata.
+        Supports Linear vs Reciprocal Rank Fusion (RRF), second-stage
+        Cross-Encoder N-gram reranking, and Maximal Marginal Relevance (MMR).
         """
         if not history:
             return RankingResult()
@@ -331,16 +332,32 @@ class RankingEngine:
             self._recency_weight(i, total) for i in range(total)
         ]
 
+        # --- Optional Second-Stage Cross-Encoder Reranker ---
+        rerank_scores = (
+            self._reranker.score_candidates(current_message, texts)
+            if use_reranker
+            else [0.0] * total
+        )
+
+        # --- Optional Reciprocal Rank Fusion ---
+        rrf_scores = (
+            compute_rrf_scores(
+                [semantic_scores, bm25_scores, recency_scores],
+                k=60,
+                weights=[effective_alpha * 0.6, effective_alpha * 0.4, 1.0 - effective_alpha],
+            )
+            if fusion_method == "rrf"
+            else []
+        )
+
         # --- Step 6: Build scored turns ---
         scored = []
         mode = str(compression_mode).lower()
         drift_multiplier = 0.45 if mode == "aggressive" else 0.3
 
         for i, turn in enumerate(history):
-            # Combine BM25 and semantic into a unified similarity score
             sim = 0.6 * semantic_scores[i] + 0.4 * bm25_scores[i]
 
-            # Apply mode-specific domain signal boosts
             mode_boost = 0.0
             if mode == "code_preserving" and (
                 "```" in turn.content or "error" in turn.content.lower() or "select " in turn.content.lower() or "def " in turn.content.lower()
@@ -349,16 +366,15 @@ class RankingEngine:
             elif mode == "verbatim_facts" and any(ch.isdigit() for ch in turn.content):
                 mode_boost = 0.15
 
-            # Apply drift penalty
             drift_pen = drift_penalties[i] * drift_multiplier if drift_detected else 0.0
 
-            # Final hybrid score
-            final = (
-                effective_alpha * sim
-                + (1.0 - effective_alpha) * recency_scores[i]
-                + mode_boost
-                - drift_pen
+            base_score = (
+                rrf_scores[i]
+                if fusion_method == "rrf" and rrf_scores
+                else (effective_alpha * sim + (1.0 - effective_alpha) * recency_scores[i])
             )
+
+            final = base_score + mode_boost + (0.25 * rerank_scores[i]) - drift_pen
 
             scored.append(ScoredTurn(
                 index=i,
@@ -370,14 +386,26 @@ class RankingEngine:
                 final_score=max(0.0, final),
             ))
 
-        # --- Step 7: Select top-k ---
-        ranked = sorted(scored, key=lambda x: x.final_score, reverse=True)
+        # --- Step 7: Select top-k (MMR diversity vs pure score) ---
         effective_k = max(1, top_k - 1) if (mode == "aggressive" and top_k > 1) else top_k
         k = min(effective_k, total)
-        selected_indices = set()
-        for item in ranked[:k]:
-            item.selected = True
-            selected_indices.add(item.index)
+
+        if use_mmr:
+            selected_idx_list = mmr_select_indices(
+                texts=texts,
+                relevance_scores=[s.final_score for s in scored],
+                top_k=k,
+                lambda_mult=mmr_lambda,
+            )
+            selected_indices = set(selected_idx_list)
+            for idx in selected_indices:
+                scored[idx].selected = True
+        else:
+            ranked = sorted(scored, key=lambda x: x.final_score, reverse=True)
+            selected_indices = set()
+            for item in ranked[:k]:
+                item.selected = True
+                selected_indices.add(item.index)
 
         # Maintain chronological order
         selected = [s.turn for s in sorted(
@@ -394,6 +422,12 @@ class RankingEngine:
             strategy_parts.append("bm25")
         if any(s > 0 for s in semantic_scores):
             strategy_parts.append("dense_vector")
+        if fusion_method == "rrf":
+            strategy_parts.append("rrf")
+        if use_reranker:
+            strategy_parts.append("cross_rerank")
+        if use_mmr:
+            strategy_parts.append("mmr")
         if drift_detected:
             strategy_parts.append("drift_penalty")
 
