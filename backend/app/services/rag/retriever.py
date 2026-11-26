@@ -9,19 +9,25 @@ from typing import Any
 
 from app.services.llm.client import LLMClientManager
 from app.services.rag.chunker import SemanticChunker, TextChunk
+from app.services.rag.citation import build_rag_citations
+from app.services.rag.query_expander import HyDEQueryExpander
 from app.services.ranking.engine import BM25Scorer, cosine_similarity
+from app.services.ranking.reranker import CrossEncoderReranker
 
 
 class ContextRetriever:
     """
     RAG retriever for long-form context documents and conversation transcripts.
-    Supports in-memory indexing, semantic chunking, and dual-scoring retrieval.
+    Supports semantic chunking, HyDE query expansion, dual-scoring retrieval,
+    second-stage N-gram reranking, and inline grounding citations.
     """
 
     def __init__(self, llm_client: LLMClientManager | None = None, chunk_size: int = 400, chunk_overlap: int = 80):
         self.chunker = SemanticChunker(chunk_size=chunk_size, chunk_overlap=chunk_overlap)
         self.llm_client = llm_client
         self.bm25 = BM25Scorer()
+        self.expander = HyDEQueryExpander(llm_client=llm_client)
+        self.reranker = CrossEncoderReranker()
         self._chunks: list[TextChunk] = []
         self._embeddings: list[list[float]] = []
 
@@ -110,6 +116,71 @@ class ContextRetriever:
 
         results.sort(key=lambda x: float(str(x["hybrid_score"])), reverse=True)
         return results[:top_k]
+
+    def retrieve_advanced(
+        self,
+        query: str,
+        top_k: int = 3,
+        alpha: float = 0.5,
+        use_hyde: bool = True,
+        use_reranker: bool = True,
+    ) -> dict[str, Any]:
+        """
+        Advanced RAG retrieval with HyDE expansion, N-gram reranking, and grounding citations.
+        """
+        if not self._chunks:
+            return {
+                "expanded_query": query,
+                "added_terms": [],
+                "results": [],
+                "citations": {"attributed_summary": "", "citations": [], "overall_confidence": 0.0},
+            }
+
+        expansion = (
+            self.expander.expand(query, use_llm=bool(self.llm_client and self.llm_client.is_available))
+            if use_hyde
+            else {"expanded_query": query, "added_terms": []}
+        )
+        effective_query = str(expansion["expanded_query"])
+
+        doc_texts = [c.text for c in self._chunks]
+        bm25_scores = self.bm25.score(effective_query, doc_texts)
+        rerank_scores = self.reranker.score_candidates(query, doc_texts) if use_reranker else [0.0] * len(doc_texts)
+
+        query_vec = (
+            self.llm_client.get_embedding(effective_query)
+            if self.llm_client and self.llm_client.is_available
+            else []
+        )
+
+        results = []
+        for i, chunk in enumerate(self._chunks):
+            chunk_vec = self._embeddings[i] if i < len(self._embeddings) else []
+            dense_sim = cosine_similarity(query_vec, chunk_vec) if query_vec and chunk_vec else 0.0
+            base_hybrid = bm25_scores[i] if not query_vec else (alpha * dense_sim + (1.0 - alpha) * bm25_scores[i])
+            final_hybrid = min(1.0, base_hybrid + (0.20 * rerank_scores[i]))
+
+            results.append({
+                "chunk_id": chunk.chunk_id,
+                "text": chunk.text,
+                "token_count": chunk.token_count,
+                "bm25_score": round(bm25_scores[i], 4),
+                "dense_score": round(dense_sim, 4),
+                "rerank_score": round(rerank_scores[i], 4),
+                "hybrid_score": round(final_hybrid, 4),
+                "metadata": chunk.metadata,
+            })
+
+        results.sort(key=lambda x: float(str(x["hybrid_score"])), reverse=True)
+        top_results = results[:top_k]
+        citations = build_rag_citations(query, top_results)
+
+        return {
+            "expanded_query": effective_query,
+            "added_terms": expansion["added_terms"],
+            "results": top_results,
+            "citations": citations,
+        }
 
     def clear(self) -> None:
         """Clears indexed documents."""
