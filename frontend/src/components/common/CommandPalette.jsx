@@ -1,5 +1,5 @@
 import React, { useEffect, useRef, useState } from 'react';
-import { Search, X, ArrowRight, Terminal, Zap, Cpu, BarChart3, BookOpen, ShieldCheck, Settings, FlaskConical, SunMoon } from 'lucide-react';
+import { Search, X, ArrowRight, Terminal, Zap, Cpu, BarChart3, BookOpen, ShieldAlert, Settings, FlaskConical, SunMoon, Target, Activity } from 'lucide-react';
 
 /**
  * Native <dialog closedby="any"> Command Palette (Cmd+K / Ctrl+K)
@@ -63,10 +63,13 @@ export default function CommandPalette({
     { id: 'act-theme', group: 'Appearance', label: 'Cycle Color Theme (Light / Dark)', hint: 'Theme', icon: SunMoon, run: onToggleTheme },
     { id: 'nav-opt', group: 'Navigation', label: 'Go to Context Workbench', hint: 'Workbench', icon: Cpu, run: () => onNavigate('optimizer') },
     { id: 'nav-play', group: 'Navigation', label: 'Go to Interactive Chat Playground', hint: 'Playground', icon: Terminal, run: () => onNavigate('playground') },
-    { id: 'nav-rag', group: 'Navigation', label: 'Go to RAG Chunker & Retriever Lab', hint: 'RAG Lab', icon: BookOpen, run: () => onNavigate('rag') },
+    { id: 'nav-rag', group: 'Navigation', label: 'Go to RAG Document & HyDE Lab', hint: 'RAG Lab', icon: BookOpen, run: () => onNavigate('rag') },
+    { id: 'nav-exp', group: 'Navigation', label: 'Go to A/B & Needle Stress Lab', hint: 'Experiments', icon: Target, run: () => onNavigate('experiments') },
     { id: 'nav-eval', group: 'Navigation', label: 'Go to LLM-as-Judge Quality Studio', hint: 'Evaluator', icon: FlaskConical, run: () => onNavigate('evaluator') },
+    { id: 'nav-fw', group: 'Navigation', label: 'Go to Zero-Trust Prompt Firewall', hint: 'Firewall', icon: ShieldAlert, run: () => onNavigate('firewall') },
     { id: 'nav-ana', group: 'Navigation', label: 'Go to Telemetry & P95 Analytics', hint: 'Telemetry', icon: BarChart3, run: () => onNavigate('analytics') },
-    { id: 'nav-sec', group: 'Navigation', label: 'Go to PII Guard & Settings', hint: 'Settings', icon: ShieldCheck, run: () => onNavigate('settings') },
+    { id: 'nav-logs', group: 'Navigation', label: 'Go to Live Trace & Circuit Breaker', hint: 'Trace Logs', icon: Activity, run: () => onNavigate('logs') },
+    { id: 'nav-sec', group: 'Navigation', label: 'Go to SDK Snippets & Settings', hint: 'SDK / Config', icon: Settings, run: () => onNavigate('settings') },
     ...presets.slice(0, 8).map((p) => ({
       id: `preset-${p.id}`,
       group: 'Scenarios',
