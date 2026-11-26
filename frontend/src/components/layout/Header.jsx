@@ -1,6 +1,12 @@
 import React, { useState, useEffect } from 'react';
 import { RotateCcw, Sparkles, Clock, Menu, Search, Keyboard, Sun, Moon, Radio } from 'lucide-react';
 
+const TRANSPORTS = [
+  { id: 'rest', label: 'REST' },
+  { id: 'ws', label: 'WS' },
+  { id: 'sse', label: 'SSE' },
+];
+
 export default function Header({
   onResetStats,
   isResetting = false,
@@ -9,8 +15,8 @@ export default function Header({
   onOpenShortcuts,
   resolvedTheme,
   onToggleTheme,
-  useWebSocket,
-  onToggleWebSocket,
+  transportMode = 'rest',
+  onTransportModeChange,
 }) {
   const [seconds, setSeconds] = useState(0);
 
@@ -47,7 +53,7 @@ export default function Header({
             Intelligent Context Engineering Workstation
           </h1>
           <p className="text-[11px] sm:text-xs tf-text-secondary truncate">
-            Hybrid Okapi BM25 + Vector Ranking • Drift Detection • RAG Retrieval • PII Guard
+            RRF + MMR Ranking • HyDE RAG • Knapsack Token Budget • Injection Firewall • Circuit Breaker
           </p>
         </div>
       </div>
@@ -64,20 +70,34 @@ export default function Header({
           <kbd className="px-1.5 py-0.5 text-[10px] font-mono rounded tf-card tf-text-muted">⌘K</kbd>
         </button>
 
-        {/* WebSocket vs REST Transport Pill */}
-        <button
-          type="button"
-          onClick={onToggleWebSocket}
-          aria-pressed={useWebSocket}
-          className={`tf-btn-target flex items-center gap-1.5 px-2.5 py-1.5 rounded-xl text-[11px] font-mono font-semibold border transition-colors cursor-pointer ${
-            useWebSocket
-              ? 'bg-cyan-500/15 text-cyan-500 border-cyan-500/35'
-              : 'tf-subsurface tf-text-secondary'
-          }`}
-        >
-          <Radio className="w-3.5 h-3.5 shrink-0" aria-hidden="true" />
-          <span>{useWebSocket ? 'WS Stream' : 'REST API'}</span>
-        </button>
+        {/* Tri-Mode Transport Segmented Radio Control (REST / WebSocket / SSE) */}
+        <fieldset className="flex items-center gap-0.5 p-0.5 rounded-xl tf-subsurface">
+          <legend className="visually-hidden">Execution Transport Protocol</legend>
+          <Radio className="w-3.5 h-3.5 text-cyan-500 ml-2 mr-1 shrink-0 hidden sm:inline" aria-hidden="true" />
+          {TRANSPORTS.map((mode) => {
+            const active = transportMode === mode.id;
+            return (
+              <label
+                key={mode.id}
+                className={`px-2 py-1 rounded-lg text-[10px] font-mono font-bold cursor-pointer transition-colors ${
+                  active
+                    ? 'bg-cyan-500/20 text-cyan-500 border border-cyan-500/35'
+                    : 'tf-text-muted border border-transparent hover:tf-text-primary'
+                }`}
+              >
+                <input
+                  type="radio"
+                  name="transport_mode"
+                  value={mode.id}
+                  checked={active}
+                  onChange={() => onTransportModeChange(mode.id)}
+                  className="sr-only"
+                />
+                <span>{mode.label}</span>
+              </label>
+            );
+          })}
+        </fieldset>
 
         {/* Quick Theme Toggle */}
         <button
