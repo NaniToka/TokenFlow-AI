@@ -10,23 +10,35 @@ import {
   FileCode,
   FileSpreadsheet,
   ShieldCheck,
+  ShieldAlert,
   DatabaseZap,
   ArrowUpDown,
   ArrowUp,
   ArrowDown,
   AlertTriangle,
+  Flame,
+  Network,
 } from 'lucide-react';
 import Card from '../common/Card';
+import ProgressRing from '../common/ProgressRing';
 
 const collator = new Intl.Collator(undefined, { numeric: true, sensitivity: 'base' });
+
+const SALIENCE_STYLES = {
+  query_match: 'bg-emerald-500/25 text-emerald-500 border-emerald-500/45 font-bold',
+  entity: 'bg-cyan-500/15 text-cyan-500 border-cyan-500/35 font-semibold',
+  content: 'tf-card tf-text-primary border-transparent',
+  filler: 'tf-text-muted opacity-50 border-transparent',
+};
 
 export default function CompressionVisualizer({
   compressionResult,
   rawHistory = [],
   currentMessage = '',
+  maxContextTokens = null,
   wsStage = null,
 }) {
-  const [activeView, setActiveView] = useState('split'); // 'split', 'diff', 'original', 'optimized'
+  const [activeView, setActiveView] = useState('split'); // 'split', 'diff', 'salience', 'original', 'optimized'
   const [copied, setCopied] = useState(false);
   const [sortConfig, setSortConfig] = useState({ key: 'final_score', direction: 'descending' });
   const [sortStatusText, setSortStatusText] = useState('');
@@ -157,9 +169,9 @@ ${final_prompt}
   };
 
   const pipelineStages = [
-    { id: 'init', label: '1. Sanitize & Count' },
-    { id: 'ranking', label: '2. BM25 + Drift Rank' },
-    { id: 'summarizing', label: '3. Cache & Summarize' },
+    { id: 'init', label: '1. Guard & Dedup' },
+    { id: 'ranking', label: '2. Fusion & MMR' },
+    { id: 'summarizing', label: '3. Pack & Summarize' },
     { id: 'complete', label: '4. Assemble Output' },
   ];
 
@@ -167,7 +179,7 @@ ${final_prompt}
 
   if (!compressionResult) {
     return (
-      <Card title="Prompt Compression Visualizer" subtitle="Compare uncompressed memory vs. TokenFlow optimized prompt">
+      <Card title="Prompt Compression Visualizer & Ranking Audit" subtitle="Compare uncompressed memory vs. TokenFlow optimized prompt">
         {wsStage && (
           <div className="mb-4 p-3 rounded-xl tf-subsurface space-y-2">
             <p className="text-xs font-mono font-semibold text-cyan-500">{wsStage.message}</p>
@@ -193,7 +205,7 @@ ${final_prompt}
           </div>
           <h3 className="text-sm sm:text-base font-semibold tf-text-primary">No Prompt Processed Yet</h3>
           <p className="text-xs tf-text-secondary max-w-md">
-            Select a scenario above or press <kbd className="px-1.5 py-0.5 rounded tf-card font-mono text-[10px]">Ctrl+Enter</kbd> to visualize live BM25 + dense vector turn scoring and token reduction.
+            Select a scenario above or press <kbd className="px-1.5 py-0.5 rounded tf-card font-mono text-[10px]">Ctrl+Enter</kbd> to visualize live RRF + dense vector turn scoring, salience heat-map, and token savings.
           </p>
         </div>
       </Card>
@@ -217,11 +229,17 @@ ${final_prompt}
     : `[USER]: ${currentMessage}`;
 
   const retainedIndices = new Set(scoresList.filter((s) => s.selected).map((s) => s.index));
+  const kg = metadata.knowledge_graph || {};
+  const salienceTokens = metadata.salience_tokens || [];
+  const firewall = metadata.firewall || { is_safe: true, risk_score: 0, highest_severity: 'NONE', findings: [] };
+
+  const budgetTarget = maxContextTokens || Math.max(1, original_tokens);
+  const budgetPct = Math.min(100, (compressed_tokens / Math.max(1, budgetTarget)) * 100);
 
   return (
     <Card
       title="Prompt Compression Visualizer & Ranking Audit"
-      subtitle="Side-by-side context diff, guardrail flags, and per-turn hybrid score breakdown"
+      subtitle="Side-by-side diff, salience heat-map, extracted knowledge graph, and per-turn hybrid score breakdown"
       action={
         <div className="flex flex-wrap items-center gap-2">
           <button
@@ -262,26 +280,32 @@ ${final_prompt}
             </button>
           )}
 
-          <div className="flex items-center gap-1 p-1 rounded-xl tf-subsurface">
-            {['split', 'diff', 'original', 'optimized'].map((mode) => (
+          <div className="flex flex-wrap items-center gap-1 p-1 rounded-xl tf-subsurface">
+            {[
+              { id: 'split', label: 'Split' },
+              { id: 'diff', label: 'Diff' },
+              { id: 'salience', label: 'Heat-Map' },
+              { id: 'original', label: 'Raw' },
+              { id: 'optimized', label: 'Optimized' },
+            ].map((mode) => (
               <button
-                key={mode}
+                key={mode.id}
                 type="button"
-                onClick={() => setActiveView(mode)}
-                className={`px-2.5 py-1 text-xs font-semibold rounded-lg capitalize transition-all cursor-pointer ${
-                  activeView === mode
+                onClick={() => setActiveView(mode.id)}
+                className={`px-2.5 py-1 text-xs font-semibold rounded-lg transition-all cursor-pointer ${
+                  activeView === mode.id
                     ? 'bg-emerald-500/20 text-emerald-500 border border-emerald-500/35'
                     : 'tf-text-secondary hover:opacity-85'
                 }`}
               >
-                {mode}
+                {mode.label}
               </button>
             ))}
           </div>
         </div>
       }
     >
-      {/* Live WebSocket Stage Stepper (when active) */}
+      {/* Live WS / SSE Stage Stepper */}
       {wsStage && (
         <div className="mb-4 p-3 rounded-xl tf-subsurface grid grid-cols-2 sm:grid-cols-4 gap-2">
           {pipelineStages.map((st, idx) => (
@@ -305,11 +329,24 @@ ${final_prompt}
           Strategy: <strong className="text-emerald-500">{metadata.ranking_strategy || 'hybrid'}</strong>
         </span>
         <span className="text-[11px] font-mono font-semibold px-2.5 py-1 rounded-lg tf-subsurface tf-text-primary">
+          Fusion: <strong className="text-cyan-500">{(metadata.fusion_method || 'linear').toUpperCase()}</strong>
+        </span>
+        <span className="text-[11px] font-mono font-semibold px-2.5 py-1 rounded-lg tf-subsurface tf-text-primary">
           α Weight: <strong>{metadata.alpha_used ?? 0.7}</strong>
         </span>
         <span className="text-[11px] font-mono font-semibold px-2.5 py-1 rounded-lg tf-subsurface tf-text-primary">
           Latency: <strong>{metadata.latency_ms ?? 0} ms</strong>
         </span>
+        {metadata.duplicates_removed > 0 && (
+          <span className="text-[11px] font-mono font-semibold px-2.5 py-1 rounded-lg bg-cyan-500/15 text-cyan-500 border border-cyan-500/30">
+            Deduped: {metadata.duplicates_removed} turn(s)
+          </span>
+        )}
+        {metadata.dropped_for_budget > 0 && (
+          <span className="text-[11px] font-mono font-semibold px-2.5 py-1 rounded-lg bg-amber-500/15 text-amber-500 border border-amber-500/30">
+            Knapsack Pruned: {metadata.dropped_for_budget} turn(s)
+          </span>
+        )}
         {metadata.drift_detected && (
           <span className="inline-flex items-center gap-1 text-[11px] font-mono font-semibold px-2.5 py-1 rounded-lg bg-amber-500/15 text-amber-500 border border-amber-500/30">
             <AlertTriangle className="w-3.5 h-3.5" aria-hidden="true" /> Drift Penalized
@@ -325,26 +362,101 @@ ${final_prompt}
             <ShieldCheck className="w-3.5 h-3.5" aria-hidden="true" /> PII Guard: {metadata.redaction.redactions_count} Masked
           </span>
         )}
+        <span className={`inline-flex items-center gap-1 text-[11px] font-mono font-semibold px-2.5 py-1 rounded-lg border ${
+          firewall.is_safe
+            ? 'bg-emerald-500/10 text-emerald-500 border-emerald-500/30'
+            : 'bg-rose-500/15 text-rose-500 border-rose-500/35'
+        }`}>
+          {firewall.is_safe ? (
+            <ShieldCheck className="w-3.5 h-3.5" aria-hidden="true" />
+          ) : (
+            <ShieldAlert className="w-3.5 h-3.5" aria-hidden="true" />
+          )}
+          Firewall: {firewall.is_safe ? 'SAFE' : `${firewall.highest_severity} (${firewall.findings.length})`}
+        </span>
       </div>
 
-      {/* Token Reduction Bar */}
-      <div className="mb-6 p-4 rounded-xl tf-subsurface space-y-2 min-w-0">
-        <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between text-xs gap-1">
-          <span className="font-semibold tf-text-primary flex items-center gap-2">
-            <TrendingDown className="w-4 h-4 text-emerald-500 shrink-0" aria-hidden="true" />
-            Token Reduction Savings: <span className="text-emerald-500 font-mono font-bold">{compression_ratio}%</span>
-          </span>
-          <span className="tf-text-secondary font-mono font-medium">
-            {compressed_tokens} / {original_tokens} tokens ({tokens_saved} eliminated)
-          </span>
-        </div>
-        <div className="w-full h-2.5 rounded-full overflow-hidden flex tf-card">
-          <div
-            className="h-full bg-gradient-to-r from-emerald-500 to-cyan-500 transition-all duration-500"
-            style={{ width: `${Math.min(100, Math.max(5, (compressed_tokens / Math.max(1, original_tokens)) * 100))}%` }}
+      {/* Native <progress> Token Meter & Circular Ring Gauges */}
+      <div className="mb-6 p-4 rounded-xl tf-subsurface flex flex-col md:flex-row items-center justify-between gap-5 min-w-0">
+        <div className="flex-1 w-full space-y-2.5 min-w-0">
+          <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between text-xs gap-1">
+            <span className="font-semibold tf-text-primary flex items-center gap-2">
+              <TrendingDown className="w-4 h-4 text-emerald-500 shrink-0" aria-hidden="true" />
+              <span>
+                Token Reduction: <strong className="text-emerald-500 font-mono">{compression_ratio}%</strong>
+              </span>
+            </span>
+            <span className="tf-text-secondary font-mono font-medium">
+              {compressed_tokens} / {maxContextTokens ? `${maxContextTokens} budget` : `${original_tokens} raw`} tokens ({tokens_saved} saved)
+            </span>
+          </div>
+          <progress
+            value={compressed_tokens}
+            max={budgetTarget}
+            aria-label={maxContextTokens ? 'Context token budget utilization' : 'Compressed prompt token share'}
+            className="tf-progress-bar"
           />
+          <p className="text-[11px] font-mono tf-text-muted">
+            Epochs summarized: <strong>{metadata.epochs_summarized ?? 0}</strong> • Pipeline mode: <strong>{metadata.model_used || 'extractive'}</strong>
+          </p>
+        </div>
+
+        <div className="flex items-center gap-4 shrink-0">
+          <ProgressRing
+            value={compression_ratio}
+            label="Token savings percentage"
+            displayValue={`${Math.round(compression_ratio)}%`}
+            subLabel="Saved"
+            size={80}
+            thickness={8}
+            color="var(--accent-primary)"
+          />
+          {maxContextTokens && (
+            <ProgressRing
+              value={budgetPct}
+              label="Knapsack token budget utilization"
+              displayValue={`${Math.round(budgetPct)}%`}
+              subLabel="Budget"
+              size={80}
+              thickness={8}
+              color={budgetPct > 95 ? '#f59e0b' : 'var(--accent-secondary)'}
+            />
+          )}
         </div>
       </div>
+
+      {/* Token Salience Heat-Map Mode */}
+      {activeView === 'salience' && (
+        <div className="space-y-3 mb-6 p-4 rounded-xl tf-subsurface">
+          <div className="flex flex-wrap items-center justify-between gap-2 pb-2" style={{ borderBottom: '1px solid var(--border-subtle)' }}>
+            <span className="text-xs font-bold uppercase tracking-wider text-emerald-500 flex items-center gap-1.5">
+              <Flame className="w-4 h-4" aria-hidden="true" /> Token-Level Salience Attribution Heat-Map
+            </span>
+            <div className="flex flex-wrap gap-2 text-[10px] font-mono">
+              <span className="px-2 py-0.5 rounded bg-emerald-500/25 text-emerald-500">Query Match (0.98)</span>
+              <span className="px-2 py-0.5 rounded bg-cyan-500/15 text-cyan-500">Technical Entity (0.78)</span>
+              <span className="px-2 py-0.5 rounded tf-card tf-text-primary">Domain Token</span>
+              <span className="px-2 py-0.5 rounded tf-text-muted opacity-60">Low-Entropy Filler</span>
+            </div>
+          </div>
+
+          <div className="max-h-96 overflow-y-auto tf-scroller leading-relaxed">
+            {salienceTokens.length > 0 ? (
+              salienceTokens.map((tok, i) => (
+                <span
+                  key={i}
+                  title={`Weight: ${tok.weight} (${tok.category})`}
+                  className={`tf-salience-chip ${SALIENCE_STYLES[tok.category] || SALIENCE_STYLES.content}`}
+                >
+                  {tok.token}
+                </span>
+              ))
+            ) : (
+              <p className="text-xs tf-text-muted">Run compression to inspect token salience weights.</p>
+            )}
+          </div>
+        </div>
+      )}
 
       {/* Diff Mode */}
       {activeView === 'diff' && (
@@ -378,7 +490,7 @@ ${final_prompt}
       )}
 
       {/* Split / Original / Optimized Panels */}
-      {activeView !== 'diff' && (
+      {activeView !== 'diff' && activeView !== 'salience' && (
         <div className={`grid gap-4 sm:gap-6 ${activeView === 'split' ? 'grid-cols-1 lg:grid-cols-2' : 'grid-cols-1'}`}>
           {(activeView === 'split' || activeView === 'original') && (
             <div className="rounded-xl tf-subsurface p-4 flex flex-col min-w-0">
@@ -424,7 +536,7 @@ ${final_prompt}
                   <div className="flex items-center gap-1.5 text-emerald-500 font-bold mb-1">
                     <Zap className="w-3.5 h-3.5 shrink-0" aria-hidden="true" /> Synthesized Background Memory
                   </div>
-                  <p className="tf-text-primary leading-relaxed">{summary}</p>
+                  <p className="tf-text-primary leading-relaxed whitespace-pre-line">{summary}</p>
                 </div>
               )}
 
@@ -438,7 +550,71 @@ ${final_prompt}
         </div>
       )}
 
-      {/* Sortable Responsive Audit Table (modern-web-guidance compliant) */}
+      {/* Structured Knowledge Graph & Security Accordion (native <details> without headings inside <summary>) */}
+      <section aria-labelledby="kg-accordion-heading" className="mt-6 space-y-2">
+        <h3 id="kg-accordion-heading" className="text-xs font-bold uppercase tracking-wider tf-text-secondary flex items-center gap-1.5">
+          <Network className="w-3.5 h-3.5 text-cyan-500" aria-hidden="true" />
+          Extracted Knowledge Graph &amp; Security Diagnostics
+        </h3>
+
+        <details className="tf-accordion-item" open>
+          <summary>
+            Extracted Entities, Inline Symbols &amp; Architectural Decisions (
+            {(kg.entities?.length || 0) + (kg.code_symbols?.length || 0) + (kg.decisions?.length || 0)} nodes)
+          </summary>
+          <div className="px-4 pb-4 space-y-3 text-xs">
+            <div className="flex flex-wrap gap-1.5">
+              {(kg.entities || []).map((ent) => (
+                <span key={ent} className="px-2 py-0.5 rounded-lg bg-cyan-500/15 text-cyan-500 border border-cyan-500/30 font-mono text-[11px]">
+                  {ent}
+                </span>
+              ))}
+              {(kg.code_symbols || []).map((sym) => (
+                <span key={sym} className="px-2 py-0.5 rounded-lg bg-violet-500/15 text-violet-500 border border-violet-500/30 font-mono text-[11px]">
+                  `{sym}`
+                </span>
+              ))}
+              {(kg.entities?.length || 0) === 0 && (kg.code_symbols?.length || 0) === 0 && (
+                <span className="tf-text-muted">No named entities or inline symbols evicted in this run.</span>
+              )}
+            </div>
+
+            {kg.decisions?.length > 0 && (
+              <ul className="space-y-1 font-mono text-[11px] tf-text-primary list-disc list-inside">
+                {kg.decisions.map((dec, idx) => (
+                  <li key={idx}>{dec}</li>
+                ))}
+              </ul>
+            )}
+
+            {kg.open_questions?.length > 0 && (
+              <div className="p-2.5 rounded-lg tf-card text-[11px] font-mono tf-text-secondary">
+                <strong className="text-amber-500">Unresolved User Questions:</strong> {kg.open_questions.join(' | ')}
+              </div>
+            )}
+          </div>
+        </details>
+
+        <details className="tf-accordion-item">
+          <summary>
+            Prompt Injection Firewall &amp; PII Sanitization Telemetry ({firewall.is_safe ? 'Clean' : `${firewall.findings.length} Triggered`})
+          </summary>
+          <div className="px-4 pb-4 text-xs font-mono space-y-2 tf-text-secondary">
+            <p>
+              Risk Score: <strong>{firewall.risk_score}</strong> • Highest Severity: <strong>{firewall.highest_severity}</strong> • Redactions Applied: <strong>{metadata.redaction?.redactions_count ?? 0}</strong>
+            </p>
+            {firewall.findings?.length > 0 && (
+              <ul className="list-disc list-inside text-rose-400">
+                {firewall.findings.map((f, idx) => (
+                  <li key={idx}>[{f.rule_id}] {f.description}: &ldquo;{f.matched_excerpt}&rdquo;</li>
+                ))}
+              </ul>
+            )}
+          </div>
+        </details>
+      </section>
+
+      {/* Sortable Responsive Audit Table */}
       {sortedScores.length > 0 && (
         <div className="mt-6 pt-5" style={{ borderTop: '1px solid var(--border-subtle)' }}>
           <div className="flex items-center justify-between mb-3">
