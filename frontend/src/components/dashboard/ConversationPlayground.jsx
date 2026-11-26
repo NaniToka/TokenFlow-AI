@@ -121,6 +121,9 @@ export default function ConversationPlayground({
               type="text"
               value={newContent}
               onChange={(e) => setNewContent(e.target.value)}
+              onKeyDown={(e) => {
+                if (e.key === 'Enter' && e.nativeEvent.isComposing) e.preventDefault();
+              }}
               placeholder="Add a technical turn or tangential comment..."
               aria-label="New turn content"
               className="tf-input flex-1 px-3 py-2 text-xs"
