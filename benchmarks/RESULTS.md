@@ -7,8 +7,8 @@
 
 ## Metrics
 - **Total Original Tokens**: 370
-- **Total Compressed Tokens**: 251
-- **Average Token Reduction %**: 32.16%
-- **Answer Quality Retained**: ~96.78% (estimated structural relevance)
+- **Total Compressed Tokens**: 281
+- **Average Token Reduction %**: 24.05%
+- **Answer Quality Retained**: ~97.59% (estimated structural relevance)
 
 *Note: These results were generated locally without the Gemini API (using fallback lexical similarity).*
