@@ -15,6 +15,7 @@ from google import genai
 
 from app.core.config import LLMConfig
 from app.core.logging import get_logger
+from app.services.llm.circuit_breaker import llm_circuit_breaker
 
 logger = get_logger(__name__)
 
@@ -64,7 +65,7 @@ class LLMClientManager:
         if not text or not text.strip():
             return []
 
-        if not self.is_available or self._client is None:
+        if not self.is_available or self._client is None or not llm_circuit_breaker.allow_request():
             return []
 
         try:
@@ -72,10 +73,12 @@ class LLMClientManager:
                 model=self._config.EMBEDDING_MODEL,
                 contents=text,
             )
+            llm_circuit_breaker.record_success()
             if response.embeddings and len(response.embeddings) > 0:
                 return response.embeddings[0].values or []
             return []
         except Exception as e:
+            llm_circuit_breaker.record_failure()
             logger.error("embedding_failed", error=str(e), text_len=len(text))
             return []
 
@@ -157,8 +160,8 @@ class LLMClientManager:
     def _call_generate(
         self, text: str, system_instruction: str, model: str
     ) -> str:
-        """Execute a single generate_content call."""
-        if self._client is None:
+        """Execute a single generate_content call protected by circuit breaker."""
+        if self._client is None or not llm_circuit_breaker.allow_request():
             return ""
         try:
             response = self._client.models.generate_content(
@@ -170,10 +173,12 @@ class LLMClientManager:
                     "max_output_tokens": self._config.SUMMARIZATION_MAX_TOKENS,
                 },
             )
+            llm_circuit_breaker.record_success()
             if response and response.text:
                 return response.text.strip()
             return ""
         except Exception as e:
+            llm_circuit_breaker.record_failure()
             logger.error("llm_generate_failed", model=model, error=str(e))
             return ""
 
