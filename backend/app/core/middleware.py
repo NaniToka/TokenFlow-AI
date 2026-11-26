@@ -14,6 +14,7 @@ from starlette.middleware.base import BaseHTTPMiddleware, RequestResponseEndpoin
 from starlette.requests import Request
 from starlette.responses import Response
 
+from app.core.log_buffer import audit_log_buffer
 from app.core.logging import (
     correlation_id_var,
     get_logger,
@@ -70,6 +71,12 @@ class TimingMiddleware(BaseHTTPMiddleware):
 
         response.headers[TIMING_HEADER] = str(elapsed_ms)
         telemetry.record_request(response.status_code, elapsed_ms)
+        audit_log_buffer.append(
+            event=f"{request.method} {request.url.path}",
+            correlation_id=correlation_id_var.get(),
+            status_code=response.status_code,
+            latency_ms=elapsed_ms,
+        )
 
         if elapsed_ms > self.SLOW_REQUEST_THRESHOLD_MS:
             logger.warning(
