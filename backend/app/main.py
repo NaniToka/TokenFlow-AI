@@ -1,9 +1,10 @@
 """
 TokenFlow AI - Production API Server
-Intelligent Context Management & Prompt Memory Optimization Platform.
+Intelligent Context Management, RAG & Prompt Memory Optimization Platform v3.0.
 """
 
 import asyncio
+import base64
 import json
 import os
 import time
@@ -21,7 +22,7 @@ from fastapi import (
 )
 from fastapi.exceptions import RequestValidationError
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import FileResponse, JSONResponse, PlainTextResponse
+from fastapi.responses import FileResponse, JSONResponse, PlainTextResponse, StreamingResponse
 from fastapi.staticfiles import StaticFiles
 from slowapi import Limiter, _rate_limit_exceeded_handler
 from slowapi.errors import RateLimitExceeded
@@ -36,7 +37,9 @@ from app.core.dependencies import (
     get_ranking_engine,
     get_stats_tracker,
 )
+from app.core.guardrails import PromptInjectionFirewall
 from app.core.lifecycle import lifespan
+from app.core.log_buffer import audit_log_buffer
 from app.core.logging import get_correlation_id, get_logger
 from app.core.metrics import telemetry
 from app.core.middleware import (
@@ -46,6 +49,7 @@ from app.core.middleware import (
 )
 from app.core.sanitizer import InputSanitizer
 from app.schemas import (
+    ABExperimentRequest,
     AsyncTaskResponse,
     BatchCompressRequest,
     BatchCompressResponse,
@@ -57,8 +61,13 @@ from app.schemas import (
     ErrorResponse,
     EvaluateRequest,
     EvaluateResponse,
+    GuardScanRequest,
     HealthStatus,
+    NeedleTestRequest,
+    OpenAIChatCompressRequest,
+    OpenAIChatCompressResponse,
     RAGChunkItem,
+    RAGFileUploadRequest,
     RAGIndexRequest,
     RAGIndexResponse,
     RAGQueryRequest,
@@ -69,9 +78,18 @@ from app.schemas import (
     SanitizeResponse,
 )
 from app.services.cache.semantic_cache import embedding_cache, summary_cache
+from app.services.compression.openai_adapter import (
+    compress_response_to_openai_messages,
+    openai_messages_to_compress_request,
+)
 from app.services.compression.pipeline import CompressionPipeline
+from app.services.evaluation.ab_runner import run_ab_experiment
 from app.services.evaluation.evaluator import ContextQualityEvaluator
+from app.services.evaluation.needle_test import run_needle_in_haystack_test
 from app.services.export.exporter import PromptExporter
+from app.services.export.sdk_snippets import generate_sdk_snippets
+from app.services.llm.circuit_breaker import llm_circuit_breaker
+from app.services.rag.ingestor import parse_uploaded_file
 from app.services.rag.retriever import ContextRetriever
 from app.services.ranking.engine import RankingEngine
 from app.services.stats_logger import StatsTracker
@@ -85,19 +103,19 @@ limiter = Limiter(key_func=get_remote_address, default_limits=[settings.RATE_LIM
 
 app = FastAPI(
     title=settings.APP_NAME,
-    description="Production-grade Prompt Memory Optimizer & Intelligent Context Middleware API",
-    version=settings.APP_VERSION,
+    description="Production-grade Prompt Memory Optimizer, RAG & Context Middleware Platform",
+    version="3.0.0",
     lifespan=lifespan,
     docs_url="/docs",
     redoc_url="/redoc",
     openapi_tags=[
-        {"name": "Core", "description": "Health, models, and system diagnostics"},
-        {"name": "Compression", "description": "Prompt optimization, async jobs, and context reduction"},
-        {"name": "RAG", "description": "Semantic chunking and hybrid sparse-dense retrieval"},
-        {"name": "Evaluation", "description": "Automated quality scoring and ranking ablation"},
-        {"name": "Security", "description": "PII redaction and prompt sanitization"},
-        {"name": "Analytics", "description": "Token reduction metrics, cache stats, and P50/P95/P99 telemetry"},
-        {"name": "Streaming", "description": "Real-time WebSocket compression"},
+        {"name": "Core", "description": "Health, models, SDK snippets, and system diagnostics"},
+        {"name": "Compression", "description": "Prompt optimization, OpenAI adapter, SSE/async jobs"},
+        {"name": "RAG", "description": "Semantic chunking, file ingestion, HyDE, and citations"},
+        {"name": "Evaluation", "description": "Quality scoring, Needle-in-a-Haystack, and A/B experiments"},
+        {"name": "Security", "description": "Prompt injection firewall and PII redaction"},
+        {"name": "Analytics", "description": "Metrics, P50/P95/P99 telemetry, cache, and audit traces"},
+        {"name": "Streaming", "description": "Real-time WebSocket and SSE streaming"},
     ],
 )
 
@@ -118,7 +136,6 @@ app.add_middleware(
 )
 
 
-# --- Exception Handlers ---
 @app.exception_handler(RequestValidationError)
 async def validation_exception_handler(request: Request, exc: RequestValidationError):
     details = [
@@ -140,22 +157,23 @@ async def validation_exception_handler(request: Request, exc: RequestValidationE
     )
 
 
-# --- Health, Models & Diagnostics ---
+# --- Health, Models & SDK Codegen ---
 _SERVER_START_TIME = time.time()
 
 
 @app.get("/health", tags=["Core"], response_model=HealthStatus)
 @app.get("/api/v1/health", tags=["Core"], response_model=HealthStatus)
 def health_check():
-    """System health check with LLM connectivity and active feature flags."""
+    """System health check with LLM connectivity, circuit breaker state, and feature flags."""
     container = get_container()
     return HealthStatus(
         status="healthy",
         service=settings.APP_NAME,
-        version=settings.APP_VERSION,
+        version="3.0.0",
         environment=settings.ENVIRONMENT.value,
         llm_available=container.llm_client.is_available,
         uptime_seconds=round(time.time() - _SERVER_START_TIME, 2),
+        circuit_breaker_state=llm_circuit_breaker.state.value,
         features={
             "semantic_cache": settings.features.ENABLE_SEMANTIC_CACHE,
             "drift_detection": settings.features.ENABLE_DRIFT_DETECTION,
@@ -197,6 +215,24 @@ def get_supported_models():
     }
 
 
+@app.get("/api/v1/sdk-snippets", tags=["Core"])
+def get_sdk_snippets(
+    target_model: str = "gemini-1.5-flash",
+    compression_mode: str = "balanced",
+    top_k: int = 3,
+    fusion_method: str = "rrf",
+    sanitize_pii: bool = True,
+):
+    """Generates drop-in integration code snippets for Python, TypeScript, OpenAI adapter, and cURL."""
+    return generate_sdk_snippets(
+        target_model=target_model,
+        compression_mode=compression_mode,
+        top_k=top_k,
+        fusion_method=fusion_method,
+        sanitize_pii=sanitize_pii,
+    )
+
+
 # --- Compression Endpoints ---
 @app.post("/api/v1/compress", tags=["Compression"], response_model=CompressResponse)
 @limiter.limit(settings.RATE_LIMIT_PER_MINUTE)
@@ -205,16 +241,12 @@ def compress_prompt(
     body: CompressRequest,
     pipeline: CompressionPipeline = Depends(get_compression_pipeline),
 ):
-    """
-    Compresses conversation history and user query into an optimized prompt.
-    Processes request in-memory with stateless execution.
-    """
+    """Compresses conversation history and user query into an optimized prompt."""
     if not body.current_message or not body.current_message.strip():
         raise HTTPException(status_code=400, detail="current_message parameter cannot be empty.")
 
     try:
-        response = pipeline.compress(body)
-        return response
+        return pipeline.compress(body)
     except HTTPException:
         raise
     except Exception as e:
@@ -223,6 +255,59 @@ def compress_prompt(
             status_code=500,
             detail="An internal server error occurred while compressing the prompt.",
         ) from e
+
+
+@app.post("/api/v1/chat/compress", tags=["Compression"], response_model=OpenAIChatCompressResponse)
+def openai_chat_compress(
+    body: OpenAIChatCompressRequest,
+    pipeline: CompressionPipeline = Depends(get_compression_pipeline),
+):
+    """Drop-in OpenAI-format `messages: [{role, content}]` context compressor."""
+    try:
+        req = openai_messages_to_compress_request(
+            messages=body.messages,
+            top_k=body.top_k,
+            target_model=body.target_model,
+            compression_mode=body.compression_mode,
+            max_context_tokens=body.max_context_tokens,
+            sanitize_pii=body.sanitize_pii,
+        )
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e)) from e
+
+    res = pipeline.compress(req)
+    out_messages = compress_response_to_openai_messages(
+        res,
+        system_instruction=req.system_instruction,
+        current_message=req.current_message,
+    )
+    return OpenAIChatCompressResponse(
+        messages=out_messages,
+        original_tokens=res.original_tokens,
+        compressed_tokens=res.compressed_tokens,
+        tokens_saved=res.tokens_saved,
+        compression_ratio=res.compression_ratio,
+        cost_saved_usd=res.cost_saved_usd,
+    )
+
+
+@app.post("/api/v1/compress/stream", tags=["Streaming"])
+async def sse_compress_stream(
+    body: CompressRequest,
+    pipeline: CompressionPipeline = Depends(get_compression_pipeline),
+):
+    """Server-Sent Events (SSE) endpoint streaming incremental compression pipeline stages."""
+    if not body.current_message or not body.current_message.strip():
+        raise HTTPException(status_code=400, detail="current_message parameter cannot be empty.")
+
+    async def _event_generator():
+        yield f"data: {json.dumps({'stage': 'init', 'message': 'Scanning firewall & deduplicating turns...'})}\n\n"
+        await asyncio.sleep(0.01)
+        yield f"data: {json.dumps({'stage': 'ranking', 'message': f'Executing {body.fusion_method.upper()} hybrid scoring...'})}\n\n"
+        res = await asyncio.to_thread(pipeline.compress, body)
+        yield f"data: {json.dumps({'stage': 'complete', 'result': res.model_dump()})}\n\n"
+
+    return StreamingResponse(_event_generator(), media_type="text/event-stream")
 
 
 @app.post("/api/v1/compress/batch", tags=["Compression"], response_model=BatchCompressResponse)
@@ -319,16 +404,60 @@ def rag_index_document(
     )
 
 
+@app.post("/api/v1/rag/upload", tags=["RAG"], response_model=RAGIndexResponse)
+def rag_upload_file(
+    body: RAGFileUploadRequest,
+    retriever: ContextRetriever = Depends(get_context_retriever),
+):
+    """Ingests a text, Markdown, Python, JSON, CSV, or log file into the RAG store."""
+    try:
+        raw_bytes = base64.b64decode(body.content) if body.is_base64 else body.content.encode("utf-8")
+        doc = parse_uploaded_file(body.filename, raw_bytes)
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e)) from e
+
+    new_chunks = retriever.index_document_with_chunks(
+        text=doc.normalized_text,
+        metadata={"source": doc.filename, "extension": doc.extension, "lines": doc.line_count},
+        chunk_size=body.chunk_size,
+        chunk_overlap=body.chunk_overlap,
+    )
+    return RAGIndexResponse(
+        chunks_indexed=len(new_chunks),
+        total_store_chunks=retriever.total_chunks,
+        chunks=[
+            RAGChunkItem(
+                chunk_id=c.chunk_id,
+                text=c.text,
+                token_count=c.token_count,
+                start_char=c.start_char,
+                end_char=c.end_char,
+                metadata=c.metadata,
+            )
+            for c in new_chunks
+        ],
+    )
+
+
 @app.post("/api/v1/rag/query", tags=["RAG"], response_model=RAGQueryResponse)
 def rag_query_chunks(
     body: RAGQueryRequest,
     retriever: ContextRetriever = Depends(get_context_retriever),
 ):
-    """Retrieves top-K semantically relevant chunks using BM25 + dense scoring."""
-    results = retriever.retrieve(query=body.query, top_k=body.top_k, alpha=body.alpha)
+    """Retrieves top-K chunks with HyDE query expansion, N-gram reranking, and grounding citations."""
+    adv = retriever.retrieve_advanced(
+        query=body.query,
+        top_k=body.top_k,
+        alpha=body.alpha,
+        use_hyde=body.use_hyde,
+        use_reranker=body.use_reranker,
+    )
     return RAGQueryResponse(
         query=body.query,
-        results=results,
+        expanded_query=str(adv["expanded_query"]),
+        added_terms=list(adv["added_terms"]),
+        results=list(adv["results"]),
+        citations=dict(adv["citations"]),
         total_indexed=retriever.total_chunks,
     )
 
@@ -340,7 +469,7 @@ def rag_clear_store(retriever: ContextRetriever = Depends(get_context_retriever)
     return {"status": "cleared", "total_indexed": 0}
 
 
-# --- Evaluation & Ranking Inspection Endpoints ---
+# --- Evaluation, Needle-in-a-Haystack & A/B Experiments ---
 @app.post("/api/v1/evaluate", tags=["Evaluation"], response_model=EvaluateResponse)
 def evaluate_compression(
     body: EvaluateRequest,
@@ -366,13 +495,16 @@ def inspect_ranking_ablation(
     body: RankInspectRequest,
     ranker: RankingEngine = Depends(get_ranking_engine),
 ):
-    """Inspects per-turn BM25, semantic, recency, and drift scores without altering session metrics."""
+    """Inspects per-turn scores across Linear/RRF fusion, MMR diversity, and Cross-Encoder reranking."""
     res = ranker.rank_turns(
         history=body.history,
         current_message=body.current_message,
         top_k=body.top_k,
         alpha=body.alpha,
         compression_mode=body.compression_mode.value,
+        fusion_method=body.fusion_method,
+        use_mmr=body.use_mmr,
+        use_reranker=body.use_reranker,
     )
     return RankInspectResponse(
         alpha_used=res.alpha_used,
@@ -382,7 +514,40 @@ def inspect_ranking_ablation(
     )
 
 
-# --- Security & Sanitization Endpoints ---
+@app.post("/api/v1/evaluate/needle", tags=["Evaluation"])
+def run_needle_stress_test(
+    body: NeedleTestRequest,
+    pipeline: CompressionPipeline = Depends(get_compression_pipeline),
+):
+    """Runs a Needle-in-a-Haystack recall stress test at configurable dialogue depth."""
+    return run_needle_in_haystack_test(
+        pipeline=pipeline,
+        haystack_turns=body.haystack_turns,
+        needle_depth_pct=body.needle_depth_pct,
+        top_k=body.top_k,
+        fusion_method=body.fusion_method,
+        compression_mode=body.compression_mode,
+    )
+
+
+@app.post("/api/v1/experiments/compare", tags=["Evaluation"])
+def compare_ab_strategies(
+    body: ABExperimentRequest,
+    pipeline: CompressionPipeline = Depends(get_compression_pipeline),
+    evaluator: ContextQualityEvaluator = Depends(get_quality_evaluator),
+):
+    """Runs side-by-side Variant A vs Variant B compression strategies and computes deltas."""
+    return run_ab_experiment(
+        pipeline=pipeline,
+        evaluator=evaluator,
+        history=body.history,
+        current_message=body.current_message,
+        variant_a=body.variant_a,
+        variant_b=body.variant_b,
+    )
+
+
+# --- Security & Prompt Firewall Endpoints ---
 @app.post("/api/v1/sanitize", tags=["Security"], response_model=SanitizeResponse)
 def sanitize_prompt_text(body: SanitizeRequest):
     """Scans and sanitizes text for XSS injections and optional sensitive PII/API credentials."""
@@ -393,6 +558,35 @@ def sanitize_prompt_text(body: SanitizeRequest):
         redactions_count=res.redactions_count,
         redacted_types=res.redacted_types,
     )
+
+
+@app.post("/api/v1/guard/scan", tags=["Security"])
+def scan_prompt_guardrails(body: GuardScanRequest):
+    """Runs full Prompt Injection Firewall + PII & XSS redaction audit."""
+    fw = PromptInjectionFirewall.scan(body.text)
+    san = InputSanitizer.sanitize_and_redact(body.text, redact_pii=body.redact_pii)
+    return {
+        "firewall": {
+            "is_safe": fw.is_safe,
+            "risk_score": fw.risk_score,
+            "highest_severity": fw.highest_severity,
+            "findings": [
+                {
+                    "rule_id": f.rule_id,
+                    "severity": f.severity,
+                    "description": f.description,
+                    "matched_excerpt": f.matched_excerpt,
+                }
+                for f in fw.findings
+            ],
+        },
+        "sanitization": {
+            "sanitized_text": san.sanitized_text,
+            "xss_stripped": san.xss_stripped,
+            "redactions_count": san.redactions_count,
+            "redacted_types": san.redacted_types,
+        },
+    }
 
 
 # --- Export Endpoint ---
@@ -427,10 +621,7 @@ def export_compression_report(
 # --- WebSocket Streaming ---
 @app.websocket("/api/v1/ws/compress")
 async def websocket_compress(websocket: WebSocket):
-    """
-    WebSocket endpoint for real-time streaming compression.
-    Sends incremental phase updates: init -> ranking -> summarizing -> complete.
-    """
+    """WebSocket endpoint streaming incremental compression pipeline stages."""
     await websocket.accept()
     container = get_container()
     pipeline = container.compression_pipeline
@@ -441,9 +632,9 @@ async def websocket_compress(websocket: WebSocket):
             payload = json.loads(data)
             req = CompressRequest(**payload)
 
-            await websocket.send_json({"stage": "init", "message": "Sanitizing & counting baseline tokens..."})
-            await websocket.send_json({"stage": "ranking", "message": "Running hybrid BM25 + dense vector + drift scoring..."})
-            await websocket.send_json({"stage": "summarizing", "message": "Checking semantic LRU cache & compressing evicted context..."})
+            await websocket.send_json({"stage": "init", "message": "Sanitizing, scanning firewall & deduplicating..."})
+            await websocket.send_json({"stage": "ranking", "message": f"Running {req.fusion_method.upper()} + drift scoring..."})
+            await websocket.send_json({"stage": "summarizing", "message": "Packing token budget & generating memory note..."})
 
             response = pipeline.compress(req)
 
@@ -462,10 +653,10 @@ async def websocket_compress(websocket: WebSocket):
             pass
 
 
-# --- Analytics, Cache & Telemetry ---
+# --- Analytics, Cache, Circuit Breaker, Audit Logs & Telemetry ---
 @app.get("/metrics", tags=["Analytics"], response_class=PlainTextResponse)
 def get_prometheus_metrics():
-    """Prometheus metrics scraping endpoint."""
+    """Prometheus metrics scraping endpoint with latency histogram buckets."""
     return PlainTextResponse(
         metrics_registry.generate_prometheus_output(),
         media_type="text/plain; version=0.0.4; charset=utf-8",
@@ -474,14 +665,41 @@ def get_prometheus_metrics():
 
 @app.get("/api/v1/telemetry", tags=["Analytics"])
 def get_runtime_telemetry():
-    """Returns P50/P90/P95/P99 latency percentiles, HTTP status breakdown, and cache telemetry."""
+    """Returns P50/P90/P95/P99 latency percentiles, circuit breaker state, and cache telemetry."""
     return {
         "latency": telemetry.summary(),
+        "circuit_breaker": llm_circuit_breaker.status(),
         "cache": {
             "summary_cache": summary_cache.stats(),
             "embedding_cache": embedding_cache.stats(),
         },
     }
+
+
+@app.get("/api/v1/circuit-breaker", tags=["Analytics"])
+def get_circuit_breaker_status():
+    """Returns upstream LLM circuit breaker diagnostics."""
+    return llm_circuit_breaker.status()
+
+
+@app.post("/api/v1/circuit-breaker/reset", tags=["Analytics"])
+def reset_circuit_breaker():
+    """Resets upstream LLM circuit breaker back to CLOSED."""
+    llm_circuit_breaker.reset()
+    return {"status": "reset", "circuit_breaker": llm_circuit_breaker.status()}
+
+
+@app.get("/api/v1/logs", tags=["Analytics"])
+def get_audit_logs(limit: int = 50):
+    """Returns recent structured telemetry trace logs (zero PII/prompt text)."""
+    return {"logs": audit_log_buffer.list_recent(limit=min(100, max(1, limit)))}
+
+
+@app.delete("/api/v1/logs", tags=["Analytics"])
+def clear_audit_logs():
+    """Clears the in-memory telemetry trace buffer."""
+    audit_log_buffer.clear()
+    return {"status": "cleared"}
 
 
 @app.get("/api/v1/cache/stats", tags=["Analytics"])
