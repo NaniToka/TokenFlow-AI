@@ -388,3 +388,313 @@ dialog.tf-dialog::backdrop {
   0%, 100% { opacity: 1; }
   50% { opacity: 0.45; }
 }
+
+/* ==========================================================================
+   TokenFlow AI v3.0 — Modern Web Guidance Compliant Controls & Visualizers
+   ========================================================================== */
+
+@property --value {
+  syntax: '<number>';
+  inherits: true;
+  initial-value: 0;
+}
+
+/* Native <progress> Linear Budget Meter (separate vendor pseudo-elements) */
+progress.tf-progress-bar {
+  appearance: none;
+  border: 0 solid;
+  overflow: clip;
+  inline-size: 100%;
+  block-size: 0.625rem;
+  border-radius: 1e5px;
+  background: var(--surface-subtle);
+  box-shadow: inset 0 1px 2px rgb(0 0 0 / 0.12);
+}
+
+progress.tf-progress-bar::-webkit-progress-bar {
+  background: transparent;
+}
+
+progress.tf-progress-bar::-webkit-progress-value {
+  background: linear-gradient(90deg, var(--accent-primary), var(--accent-secondary));
+  border-radius: 1e5px;
+  transition: inline-size 0.3s ease;
+}
+
+progress.tf-progress-bar::-moz-progress-bar {
+  background: linear-gradient(90deg, var(--accent-primary), var(--accent-secondary));
+  border-radius: 1e5px;
+  transition: inline-size 0.3s ease;
+}
+
+/* Native <progress> Circular Ring Gauge */
+.tf-progress-ring-wrapper {
+  position: relative;
+  display: inline-grid;
+  place-items: center;
+}
+
+progress.tf-progress-ring::-webkit-progress-bar {
+  display: none;
+  background: none;
+}
+
+progress.tf-progress-ring::-webkit-progress-value {
+  display: none;
+  background: none;
+}
+
+progress.tf-progress-ring::-moz-progress-bar {
+  display: none;
+  background: none;
+}
+
+progress.tf-progress-ring::slider-fill {
+  display: none;
+  background: none;
+}
+
+progress.tf-progress-ring {
+  --size: 84px;
+  --thickness: 8px;
+  --track-color: var(--surface-subtle);
+  --fill-color: var(--accent-primary);
+  --value: 0;
+  appearance: none;
+  width: var(--size);
+  height: var(--size);
+  border-radius: 50%;
+  background: conic-gradient(
+    var(--fill-color) calc(var(--value) * 1%),
+    var(--track-color) 0
+  );
+  background-clip: border-area;
+  border: var(--thickness) solid transparent;
+  background-origin: border-box;
+  transition: --value 0s ease-in-out;
+
+  @media (prefers-reduced-motion: no-preference) {
+    transition-duration: 0.45s;
+  }
+
+  @media (forced-colors: active) {
+    forced-color-adjust: none;
+    --fill-color: CanvasText;
+    --track-color: Canvas;
+  }
+}
+
+@supports not (background-clip: border-area) {
+  progress.tf-progress-ring {
+    mask-image: radial-gradient(
+      transparent calc(50% - var(--thickness)),
+      black calc(50% - var(--thickness) + 0.5px)
+    );
+    border: 0;
+  }
+}
+
+.tf-progress-ring-content {
+  position: absolute;
+  pointer-events: none;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+}
+
+/* Native Range Sliders (separate WebKit & Firefox rule blocks) */
+input[type="range"].tf-slider {
+  --slider-track-size: 0.42rem;
+  --slider-thumb-size: 1rem;
+  --slider-track-radius: 999px;
+  --slider-thumb-radius: 50%;
+  --slider-track-color: var(--border-strong);
+  --slider-fill-color: var(--accent-primary);
+  --slider-thumb-color: var(--accent-primary);
+  --slider-direction: to right;
+  --attr-min: 0;
+  --attr-max: 100;
+  --control-value: 50;
+  --slider-progress: calc(
+    (var(--control-value) - var(--attr-min)) /
+    max(1, (var(--attr-max) - var(--attr-min))) * 100%
+  );
+  appearance: none;
+  inline-size: 100%;
+  block-size: 1.75rem;
+  margin: 0;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  cursor: pointer;
+}
+
+input[type="range"].tf-slider:dir(rtl) {
+  --slider-direction: to left;
+}
+
+input[type="range"].tf-slider::-webkit-slider-runnable-track {
+  block-size: var(--slider-track-size);
+  border: 0;
+  border-radius: var(--slider-track-radius);
+  background: linear-gradient(
+    var(--slider-direction),
+    var(--slider-fill-color) var(--slider-progress),
+    var(--slider-track-color) var(--slider-progress)
+  );
+}
+
+input[type="range"].tf-slider::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  appearance: none;
+  inline-size: var(--slider-thumb-size);
+  block-size: var(--slider-thumb-size);
+  margin-block-start: calc((var(--slider-track-size) - var(--slider-thumb-size)) / 2);
+  border: 2px solid var(--surface-elevated);
+  border-radius: var(--slider-thumb-radius);
+  background: var(--slider-thumb-color);
+}
+
+input[type="range"].tf-slider::-moz-range-track {
+  block-size: var(--slider-track-size);
+  border: 0;
+  border-radius: var(--slider-track-radius);
+  background: var(--slider-track-color);
+}
+
+input[type="range"].tf-slider::-moz-range-progress {
+  block-size: var(--slider-track-size);
+  border-radius: var(--slider-track-radius);
+  background: var(--slider-fill-color);
+}
+
+input[type="range"].tf-slider::-moz-range-thumb {
+  inline-size: var(--slider-thumb-size);
+  block-size: var(--slider-thumb-size);
+  border: 2px solid var(--surface-elevated);
+  border-radius: var(--slider-thumb-radius);
+  background: var(--slider-thumb-color);
+}
+
+input[type="range"].tf-slider:focus-visible {
+  outline: 2px solid var(--accent-primary);
+  outline-offset: 4px;
+}
+
+/* Native HTML Switch Control */
+input[type="checkbox"][switch].tf-switch {
+  accent-color: var(--accent-primary);
+  margin: 0;
+  inline-size: 1.125rem;
+  block-size: 1.125rem;
+  cursor: pointer;
+}
+
+input[type="checkbox"][switch].tf-switch:focus-visible {
+  outline: 3px solid var(--accent-primary);
+  outline-offset: 3px;
+}
+
+/* Native <details> Accordion with smooth ::details-content animation */
+details.tf-accordion-item {
+  border: 1px solid var(--border-subtle);
+  border-radius: 0.75rem;
+  background-color: var(--surface-subtle);
+}
+
+details.tf-accordion-item > summary {
+  list-style: none;
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.75rem 1rem;
+  font-size: 0.75rem;
+  font-weight: 700;
+  color: var(--text-primary);
+  cursor: pointer;
+  user-select: none;
+}
+
+details.tf-accordion-item > summary::-webkit-details-marker {
+  display: none;
+}
+
+details.tf-accordion-item > summary::before {
+  content: "▸";
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  inline-size: 1em;
+  block-size: 1em;
+  flex-shrink: 0;
+  color: var(--accent-primary);
+  transform: rotate(0deg);
+}
+
+details.tf-accordion-item[open] > summary::before {
+  transform: rotate(90deg);
+}
+
+details.tf-accordion-item::details-content {
+  interpolate-size: allow-keywords;
+  overflow: clip;
+  contain: layout;
+}
+
+details.tf-accordion-item:not([open])::details-content {
+  block-size: 0;
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  details.tf-accordion-item > summary::before {
+    transition: transform 0.2s ease;
+  }
+  details.tf-accordion-item::details-content {
+    transition: block-size, content-visibility, display;
+    transition-duration: 0.28s;
+    transition-timing-function: ease-in-out;
+    transition-behavior: allow-discrete;
+  }
+}
+
+/* Popover Toast Top-Layer Stack */
+.tf-toast-region {
+  position: fixed;
+  inset-block-end: 1rem;
+  inset-inline-end: 1rem;
+  z-index: 60;
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  max-inline-size: min(92vw, 26rem);
+  pointer-events: none;
+}
+
+[popover="manual"].tf-toast-popover {
+  position: static;
+  margin: 0;
+  inset: auto;
+  border-radius: 0.75rem;
+  pointer-events: auto;
+  box-shadow: 0 20px 45px -10px rgba(0, 0, 0, 0.45);
+}
+
+@supports not selector(:popover-open) {
+  [popover].tf-toast-popover:not(.\:popover-open) {
+    display: none;
+  }
+}
+
+/* Token Salience Heat-Map Pill Classes */
+.tf-salience-chip {
+  display: inline-block;
+  padding: 0.08rem 0.3rem;
+  margin: 0.1rem;
+  border-radius: 0.32rem;
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: 0.72rem;
+  line-height: 1.45;
+  border: 1px solid transparent;
+}
