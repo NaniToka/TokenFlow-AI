@@ -78,6 +78,12 @@ Detailed Architecture Decision Records (ADRs) document the engineering trade-off
    * *Rationale*: Provides sub-second progressive status updates (`init` → `ranking` → `summarizing` → `complete`) for interactive UIs.
 4. **[ADR-004: Resilient Offline-Calibrated Tokenization](docs/adr/004-offline-calibrated-tokenization.md)**
    * *Rationale*: Dual-mode token accounting falls back to calibrated subword heuristic when external BPE files cannot be downloaded in air-gapped VPCs.
+5. **[ADR-005: RRF Fusion, MMR Diversity & N-Gram Reranking](docs/adr/005-rrf-mmr-reranking-pipeline.md)**
+   * *Rationale*: Scale-invariant rank fusion and diversity sampling eliminate redundant retry turns without extra model dependencies.
+6. **[ADR-006: Hard Knapsack Token Budgeting & Hierarchical Summarization](docs/adr/006-knapsack-token-budgeting.md)**
+   * *Rationale*: Guarantees downstream context-window SLAs while preventing middle-context amnesia on 12+ evicted turns.
+7. **[ADR-007: Prompt Injection Firewall & LLM Circuit Breaker](docs/adr/007-prompt-injection-firewall-and-circuit-breaker.md)**
+   * *Rationale*: Deterministic `INJ-001..005` threat scanning and 3-state circuit breaking ensure zero-trust reliability during upstream outages.
 
 ---
 
@@ -116,11 +122,11 @@ Visit the interactive dashboard at **`http://localhost:8000`** (or `http://local
 The repository maintains strict test coverage enforced through automated CI workflows:
 
 ```bash
-# Run complete test suite (24 unit & integration tests)
-pytest backend/tests -v
+# Run complete test suite (53 unit & integration tests)
+PYTHONPATH=backend pytest backend/tests -v
 
 # Run with coverage report
-pytest backend/tests --cov=backend/app --cov-report=term-missing
+PYTHONPATH=backend pytest backend/tests --cov=backend/app --cov-report=term-missing
 
 # Run benchmark reproduction script
 python benchmarks/run.py
@@ -146,14 +152,20 @@ curl -X POST http://localhost:8000/api/v1/compress \
   }'
 ```
 
-### 2. Batch Optimization (`POST /api/v1/compress/batch`)
-Executes compression across multiple conversation dialogues concurrently.
+### 2. Drop-In OpenAI Chat Compressor (`POST /api/v1/chat/compress`)
+Directly accepts OpenAI `messages: [{role, content}]` arrays, optimizes context, and returns a compressed message array.
 
-### 3. WebSocket Real-Time Stream (`WS /api/v1/ws/compress`)
-Bidirectional WebSocket channel streaming progress stages in real time.
+### 3. Batch & Streaming Channels (`POST /api/v1/compress/batch`, `POST /api/v1/compress/stream`, `WS /api/v1/ws/compress`)
+Concurrent batch optimization plus Server-Sent Events (SSE) and WebSocket real-time progress streaming.
 
-### 4. Telemetry Analytics (`GET /api/v1/stats`)
-Retrieves real-time session stats: token savings, USD reduction, and request histories.
+### 4. HyDE RAG Ingestion & Grounded Citations (`POST /api/v1/rag/upload`, `POST /api/v1/rag/query`)
+Ingests `.md/.py/.txt/.json/.csv/.log` files, expands queries via HyDE synonyms, applies N-gram reranking, and attaches `[Chunk #i]` citations.
+
+### 5. Evaluation, Security Firewall & Observability
+- `POST /api/v1/evaluate/needle`: Needle-in-a-Haystack context retention stress test
+- `POST /api/v1/experiments/compare`: Side-by-side Variant A vs B strategy benchmarking
+- `POST /api/v1/guard/scan`: Zero-trust prompt injection firewall (`INJ-001..005`) + PII/XSS redactor
+- `GET /api/v1/logs`, `GET /api/v1/circuit-breaker`, `GET /api/v1/sdk-snippets`, `GET /api/v1/stats`: Live trace ring buffer, circuit breaker, multi-language SDK codegen, and telemetry.
 
 ---
 
