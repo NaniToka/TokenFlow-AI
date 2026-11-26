@@ -8,20 +8,25 @@ import DemoModeSelector from './components/dashboard/DemoModeSelector';
 import CustomInputForm from './components/dashboard/CustomInputForm';
 import ConversationPlayground from './components/dashboard/ConversationPlayground';
 import RagWorkbench from './components/dashboard/RagWorkbench';
+import ExperimentsStudio from './components/dashboard/ExperimentsStudio';
 import QualityEvaluator from './components/dashboard/QualityEvaluator';
+import SecurityFirewall from './components/dashboard/SecurityFirewall';
+import TraceConsole from './components/dashboard/TraceConsole';
 import SystemSettings from './components/dashboard/SystemSettings';
 import CommandPalette from './components/common/CommandPalette';
 import ShortcutsModal from './components/common/ShortcutsModal';
+import ToastRegion from './components/common/ToastRegion';
 import {
   getStats,
   resetStats,
   compressPrompt,
   getHealth,
   streamCompressWS,
+  streamCompressSSE,
 } from './services/api';
 import { DEMO_PRESETS } from './data/demoConversation';
 import { useTheme } from './hooks/useTheme';
-import { AlertTriangle, CheckCircle2, Code2, Sliders } from 'lucide-react';
+import { Code2, Sliders } from 'lucide-react';
 
 export default function App() {
   const { preference, resolvedTheme, systemTheme, setPreference, toggleQuick } = useTheme();
@@ -56,10 +61,15 @@ export default function App() {
   const [topK, setTopK] = useState(3);
   const [targetModel, setTargetModel] = useState('gemini-1.5-flash');
   const [compressionMode, setCompressionMode] = useState('balanced');
+  const [fusionMethod, setFusionMethod] = useState('rrf');
+  const [useMmr, setUseMmr] = useState(true);
+  const [useReranker, setUseReranker] = useState(true);
+  const [useDedup, setUseDedup] = useState(true);
+  const [maxContextTokens, setMaxContextTokens] = useState(null);
   const [alphaOverride, setAlphaOverride] = useState(null);
   const [sanitizePii, setSanitizePii] = useState(false);
   const [useCache, setUseCache] = useState(true);
-  const [useWebSocket, setUseWebSocket] = useState(false);
+  const [transportMode, setTransportMode] = useState('rest'); // 'rest' | 'ws' | 'sse'
 
   const [inputMode, setInputMode] = useState('demo');
   const [rawHistoryJson, setRawHistoryJson] = useState('');
@@ -69,11 +79,15 @@ export default function App() {
   const [wsStage, setWsStage] = useState(null);
   const [compressionResult, setCompressionResult] = useState(null);
   const [isResetting, setIsResetting] = useState(false);
-  const [toastMessage, setToastMessage] = useState(null);
+  const [toasts, setToasts] = useState([]);
+
+  const dismissToast = useCallback((id) => {
+    setToasts((prev) => prev.filter((t) => t.id !== id));
+  }, []);
 
   const showToast = useCallback((message, type = 'success') => {
-    setToastMessage({ message, type });
-    setTimeout(() => setToastMessage(null), 4000);
+    const id = `${Date.now()}-${Math.random().toString(36).slice(2, 7)}`;
+    setToasts((prev) => [...prev.slice(-2), { id, message, type }]);
   }, []);
 
   const fetchSessionStats = useCallback(async () => {
@@ -118,14 +132,23 @@ export default function App() {
       alpha: alphaOverride,
       target_model: targetModel,
       compression_mode: compressionMode,
+      fusion_method: fusionMethod,
+      use_mmr: useMmr,
+      use_reranker: useReranker,
+      use_dedup: useDedup,
+      max_context_tokens: maxContextTokens,
       sanitize_pii: sanitizePii,
       use_cache: useCache,
     };
 
     try {
       let result;
-      if (useWebSocket) {
+      if (transportMode === 'ws') {
         result = await streamCompressWS(payload, (stageEvent) => {
+          setWsStage(stageEvent);
+        });
+      } else if (transportMode === 'sse') {
+        result = await streamCompressSSE(payload, (stageEvent) => {
           setWsStage(stageEvent);
         });
       } else {
@@ -147,11 +170,29 @@ export default function App() {
     } finally {
       setIsCompressing(false);
     }
-  }, [activeHistory, customQuery, topK, alphaOverride, targetModel, compressionMode, sanitizePii, useCache, useWebSocket, fetchSessionStats, showToast]);
+  }, [
+    activeHistory,
+    customQuery,
+    topK,
+    alphaOverride,
+    targetModel,
+    compressionMode,
+    fusionMethod,
+    useMmr,
+    useReranker,
+    useDedup,
+    maxContextTokens,
+    sanitizePii,
+    useCache,
+    transportMode,
+    fetchSessionStats,
+    showToast,
+  ]);
 
-  // Global keyboard shortcuts (Cmd+K, Ctrl+Enter, Shift+?)
+  // Global keyboard shortcuts (IME composition safe)
   useEffect(() => {
     const onKeyDown = (e) => {
+      if (e.isComposing) return;
       if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === 'k') {
         e.preventDefault();
         setIsCmdOpen((prev) => !prev);
@@ -189,25 +230,8 @@ export default function App() {
         Skip to main content
       </a>
 
-      {/* Single centralized polite live region for toast status notifications */}
-      <div aria-live="polite" className="fixed bottom-4 right-4 sm:bottom-6 sm:right-6 z-50 max-w-[calc(100vw-2rem)]">
-        {toastMessage && (
-          <div
-            className={`flex items-center gap-3 px-4 py-3 rounded-xl border text-xs font-semibold shadow-2xl backdrop-blur-xl ${
-              toastMessage.type === 'error'
-                ? 'bg-rose-950/95 text-rose-200 border-rose-500/40'
-                : 'bg-emerald-950/95 text-emerald-200 border-emerald-500/40'
-            }`}
-          >
-            {toastMessage.type === 'error' ? (
-              <AlertTriangle className="w-4 h-4 text-rose-400 shrink-0" aria-hidden="true" />
-            ) : (
-              <CheckCircle2 className="w-4 h-4 text-emerald-400 shrink-0" aria-hidden="true" />
-            )}
-            <span className="truncate">{toastMessage.message}</span>
-          </div>
-        )}
-      </div>
+      {/* Accessible popover="manual" persistent toast region */}
+      <ToastRegion toasts={toasts} onDismiss={dismissToast} />
 
       {/* Native <dialog> Modals */}
       <CommandPalette
@@ -244,8 +268,8 @@ export default function App() {
           onOpenShortcuts={() => setIsShortcutsOpen(true)}
           resolvedTheme={resolvedTheme}
           onToggleTheme={toggleQuick}
-          useWebSocket={useWebSocket}
-          onToggleWebSocket={() => setUseWebSocket((prev) => !prev)}
+          transportMode={transportMode}
+          onTransportModeChange={setTransportMode}
         />
 
         <main id="main-content" tabIndex={-1} className="flex-1 p-3 sm:p-6 lg:p-8 max-w-7xl w-full mx-auto space-y-6 min-w-0 outline-none">
@@ -290,6 +314,16 @@ export default function App() {
                   onTargetModelChange={setTargetModel}
                   compressionMode={compressionMode}
                   onCompressionModeChange={setCompressionMode}
+                  fusionMethod={fusionMethod}
+                  onFusionMethodChange={setFusionMethod}
+                  useMmr={useMmr}
+                  onUseMmrChange={setUseMmr}
+                  useReranker={useReranker}
+                  onUseRerankerChange={setUseReranker}
+                  useDedup={useDedup}
+                  onUseDedupChange={setUseDedup}
+                  maxContextTokens={maxContextTokens}
+                  onMaxContextTokensChange={setMaxContextTokens}
                   alphaOverride={alphaOverride}
                   onAlphaOverrideChange={setAlphaOverride}
                   sanitizePii={sanitizePii}
@@ -316,6 +350,7 @@ export default function App() {
                 compressionResult={compressionResult}
                 rawHistory={activeHistory}
                 currentMessage={customQuery}
+                maxContextTokens={maxContextTokens}
                 wsStage={wsStage}
               />
             </div>
@@ -336,6 +371,7 @@ export default function App() {
                   compressionResult={compressionResult}
                   rawHistory={activeHistory}
                   currentMessage={customQuery}
+                  maxContextTokens={maxContextTokens}
                   wsStage={wsStage}
                 />
               )}
@@ -343,6 +379,14 @@ export default function App() {
           )}
 
           {activeTab === 'rag' && <RagWorkbench onToast={showToast} />}
+
+          {activeTab === 'experiments' && (
+            <ExperimentsStudio
+              activeHistory={activeHistory}
+              currentQuery={customQuery}
+              onToast={showToast}
+            />
+          )}
 
           {activeTab === 'evaluator' && (
             <QualityEvaluator
@@ -353,7 +397,11 @@ export default function App() {
             />
           )}
 
+          {activeTab === 'firewall' && <SecurityFirewall onToast={showToast} />}
+
           {activeTab === 'analytics' && <AnalyticsCharts stats={stats} onToast={showToast} />}
+
+          {activeTab === 'logs' && <TraceConsole onToast={showToast} />}
 
           {activeTab === 'settings' && (
             <SystemSettings
@@ -363,6 +411,8 @@ export default function App() {
               targetModel={targetModel}
               compressionMode={compressionMode}
               topK={topK}
+              fusionMethod={fusionMethod}
+              sanitizePii={sanitizePii}
             />
           )}
         </main>
